@@ -106,6 +106,11 @@ export const App: React.FC = () => {
         });
         setSummary(result);
         setCurrentScreen('results');
+      } else {
+        alert(
+          'Running in standalone Web Browser preview on localhost.\n\nTo execute live inspections (which require local filesystem and toolchain access), launch DeployLens via Electron:\n\n  pnpm desktop:build\n  pnpm --filter @deploylens/desktop start\n\nOr run the CLI directly in your terminal:\n  pnpm cli scan ' + artifact.path
+        );
+        setCurrentScreen('select');
       }
     } catch (err: any) {
       console.error('Validation error:', err);
@@ -189,6 +194,10 @@ export const App: React.FC = () => {
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '14px', fontSize: '0.8rem', color: '#64748b' }}>
+          <span style={{ color: typeof window !== 'undefined' && window.deployLens ? '#4ade80' : '#818cf8', fontWeight: 600 }}>
+            {typeof window !== 'undefined' && window.deployLens ? '⚡ Electron Native Bridge' : '🌐 Localhost Web Preview'}
+          </span>
+          <span>•</span>
           <span>100% Local Engine</span>
           <span>•</span>
           <span>No Data Persisted</span>

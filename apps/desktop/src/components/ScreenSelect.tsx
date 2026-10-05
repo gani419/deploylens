@@ -24,10 +24,42 @@ export const ScreenSelect: React.FC<ScreenSelectProps> = ({
   const [preferredLanguage, setPreferredLanguage] = useState('en-US');
 
   const handleChooseFile = async () => {
-    const artifact = await onSelectFile();
-    if (artifact) {
-      setSelectedArtifact(artifact);
+    try {
+      const artifact = await onSelectFile();
+      if (artifact) {
+        setSelectedArtifact(artifact);
+        return;
+      }
+    } catch {
+      // Fall through to browser file input
     }
+
+    // Browser fallback file input when running via localhost in web browser
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = '.apk,.aab,.ipa';
+    input.onchange = (e: any) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const ext = file.name.split('.').pop()?.toLowerCase();
+      let platform: ArtifactIdentity['platform'] = 'android';
+      let artifactType: ArtifactIdentity['artifactType'] = 'apk';
+      if (ext === 'ipa') {
+        platform = 'ios';
+        artifactType = 'ipa';
+      } else if (ext === 'aab') {
+        platform = 'android';
+        artifactType = 'aab';
+      }
+      setSelectedArtifact({
+        path: file.name,
+        fileName: file.name,
+        sizeBytes: file.size,
+        platform,
+        artifactType,
+      });
+    };
+    input.click();
   };
 
   const handleDragOver = (e: React.DragEvent) => {
