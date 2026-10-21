@@ -27,8 +27,8 @@ describe('Versioned Rule Evaluation & Constraints', () => {
     expect(res.evidence).toContain('maxSdkVersion: Not declared');
   });
 
-  it('RULE-AND-SDK-001 distinguishes targetSdkVersion >= 34 without claiming it is maximum supported OS', () => {
-    const meta: Partial<AndroidMetadata> = { targetSdkVersion: 35 };
+  it('RULE-AND-SDK-001 distinguishes targetSdkVersion >= 36 without claiming it is maximum supported OS', () => {
+    const meta: Partial<AndroidMetadata> = { targetSdkVersion: 36 };
     const res = androidTargetSdkRule.evaluate({
       metadata: meta as AndroidMetadata,
       toolCapabilities: {},

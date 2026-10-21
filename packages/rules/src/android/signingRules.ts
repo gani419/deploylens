@@ -3,7 +3,7 @@ import type { Rule } from '../types.js';
 
 export const androidApkSigningSchemeRule: Rule<AndroidMetadata> = {
   id: 'RULE-AND-SIGN-001',
-  revision: '2026.1',
+  revision: '2026.10',
   platform: 'android',
   category: 'signing',
   severity: 'blocker',
@@ -12,7 +12,7 @@ export const androidApkSigningSchemeRule: Rule<AndroidMetadata> = {
   whyItMatters: 'Android 11+ and modern devices enforce APK Signature Scheme v2/v3. V1-only signed APKs are vulnerable to archive manipulation and rejected for devices targeting API 30+.',
   remediation: 'Sign the APK using apksigner or Gradle signing config with v1SigningEnabled and v2SigningEnabled true.',
   officialReferenceUrl: 'https://source.android.com/docs/security/features/apksigning',
-  sourceReviewDate: '2026-01-10',
+  sourceReviewDate: '2026-10-21',
   applicabilityDescription: 'Applies to APK artifacts.',
   requiredCapabilities: [],
   evaluate: ({ metadata }) => {
@@ -25,6 +25,9 @@ export const androidApkSigningSchemeRule: Rule<AndroidMetadata> = {
       };
     }
 
+    if (metadata.signing.verificationOutcome === 'not-checked') {
+      return { ruleId: 'RULE-AND-SIGN-001', outcome: 'not-checked', evidence: metadata.signing.warnings.join('; ') };
+    }
     if (!metadata.signing.signingVerified) {
       return {
         ruleId: 'RULE-AND-SIGN-001',
@@ -61,7 +64,7 @@ export const androidApkSigningSchemeRule: Rule<AndroidMetadata> = {
 
 export const androidAabSigningRule: Rule<AndroidMetadata> = {
   id: 'RULE-AND-SIGN-002',
-  revision: '2026.1',
+  revision: '2026.10',
   platform: 'android',
   category: 'signing',
   severity: 'blocker',
@@ -70,7 +73,7 @@ export const androidAabSigningRule: Rule<AndroidMetadata> = {
   whyItMatters: 'AAB archives must be signed by the developer upload key using JAR signing (META-INF/*.RSA or *.EC) before upload to Google Play, which then generates device-specific APKs signed by the Play app signing key.',
   remediation: 'Configure your release signing config in build.gradle with your Google Play upload keystore.',
   officialReferenceUrl: 'https://developer.android.com/studio/publish/app-signing#app-signing-google-play',
-  sourceReviewDate: '2026-01-10',
+  sourceReviewDate: '2026-10-21',
   applicabilityDescription: 'Applies to AAB artifacts.',
   requiredCapabilities: [],
   evaluate: ({ metadata }) => {
@@ -83,6 +86,9 @@ export const androidAabSigningRule: Rule<AndroidMetadata> = {
       };
     }
 
+    if (metadata.signing.verificationOutcome === 'not-checked') {
+      return { ruleId: 'RULE-AND-SIGN-002', outcome: 'not-checked', evidence: metadata.signing.warnings.join('; ') };
+    }
     if (!metadata.signing.signingVerified) {
       return {
         ruleId: 'RULE-AND-SIGN-002',

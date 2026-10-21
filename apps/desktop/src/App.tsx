@@ -16,6 +16,7 @@ import { ScreenStoreGuidance } from './components/ScreenStoreGuidance.js';
 type AppScreen = 'select' | 'validation' | 'results';
 
 export const App: React.FC = () => {
+  const [scanError, setScanError] = useState<string | null>(null);
   const [currentScreen, setCurrentScreen] = useState<AppScreen>('select');
   const [capabilities, setCapabilities] = useState<CapabilityReport | null>(null);
 
@@ -93,6 +94,7 @@ export const App: React.FC = () => {
   };
 
   const handleStartValidation = async (artifact: ArtifactIdentity, appInfo: UserAppInfo) => {
+    setScanError(null);
     setSelectedArtifact(artifact);
     setCurrentScreen('validation');
     setStages([]);
@@ -113,7 +115,8 @@ export const App: React.FC = () => {
         setCurrentScreen('select');
       }
     } catch (err: any) {
-      console.error('Validation error:', err);
+      setScanError(err.message || 'Inspection failed. Please try another build.');
+      setCurrentScreen('select');
     }
   };
 
@@ -204,6 +207,7 @@ export const App: React.FC = () => {
         </div>
       </header>
 
+      {scanError && <div role="alert" style={{ padding: 16, color: '#fca5a5', textAlign: 'center' }}>{scanError}</div>}
       {/* Main Content Area */}
       <main style={{ flex: 1 }}>
         {currentScreen === 'select' && (

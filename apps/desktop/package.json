@@ -5,11 +5,13 @@
   "type": "module",
   "main": "./dist-electron/main.js",
   "scripts": {
-    "dev": "vite",
-    "build:renderer": "vite build",
-    "build:electron": "tsc -p tsconfig.electron.json",
+    "dev": "pnpm run build && electron .",
+    "build:renderer": "tsc --noEmit && vite build",
+    "build:electron": "tsc -p tsconfig.electron.json && esbuild electron/preload.ts --bundle --platform=node --format=cjs --external:electron --outfile=dist-electron/preload.cjs",
     "build": "pnpm run build:renderer && pnpm run build:electron",
-    "start": "electron ."
+    "start": "electron .",
+    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
+    "preview": "vite"
   },
   "dependencies": {
     "@deploylens/contracts": "workspace:*",
@@ -25,6 +27,7 @@
     "electron": "34.3.0",
     "rimraf": "6.0.1",
     "typescript": "5.8.2",
-    "vite": "6.2.0"
+    "vite": "6.2.0",
+    "esbuild": "0.25.12"
   }
 }

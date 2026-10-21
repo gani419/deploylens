@@ -3,7 +3,7 @@ import type { Rule } from '../types.js';
 
 export const androidAabSubmissionFormatRule: Rule<AndroidMetadata> = {
   id: 'RULE-AND-PKG-001',
-  revision: '2026.1',
+  revision: '2026.10',
   platform: 'android',
   category: 'packaging',
   severity: 'blocker',
@@ -12,7 +12,7 @@ export const androidAabSubmissionFormatRule: Rule<AndroidMetadata> = {
   whyItMatters: 'APKs cannot be uploaded as new applications on Google Play. App Bundles allow dynamic delivery, optimized download sizes per device ABI and density, and asset pack streaming.',
   remediation: 'Generate an Android App Bundle (.aab) using Gradle (./gradlew bundleRelease) or Android Studio "Build > Build Bundle(s) / APK(s) > Build Bundle(s)".',
   officialReferenceUrl: 'https://developer.android.com/guide/app-bundle',
-  sourceReviewDate: '2026-01-10',
+  sourceReviewDate: '2026-10-21',
   applicabilityDescription: 'Applies to builds intended for new Google Play submissions (APKs are permitted for existing apps or alternative app stores).',
   requiredCapabilities: [],
   evaluate: ({ metadata }) => {
@@ -37,16 +37,16 @@ export const androidAabSubmissionFormatRule: Rule<AndroidMetadata> = {
 
 export const androidArchiveSizeRule: Rule<AndroidMetadata> = {
   id: 'RULE-AND-PKG-002',
-  revision: '2026.1',
+  revision: '2026.10',
   platform: 'android',
   category: 'packaging',
   severity: 'quality',
   name: 'Artifact Size and Large File Audit',
   description: 'Analyzes compressed archive size versus uncompressed breakdown and highlights large individual files.',
-  whyItMatters: 'Google Play maximum download size limit for base APK generated from bundle is 200MB. Large downloads increase installation drop-off and battery usage.',
+  whyItMatters: 'Store delivery limits apply to generated device downloads, not the raw uploaded archive. Large downloads can increase installation drop-off.',
   remediation: 'Use ProGuard/R8 code shrinking, WebP image compression, Play Feature Delivery, or Play Asset Delivery for assets over 10 MB.',
   officialReferenceUrl: 'https://developer.android.com/topic/performance/reduce-apk-size',
-  sourceReviewDate: '2026-01-10',
+  sourceReviewDate: '2026-10-21',
   applicabilityDescription: 'Applies to all Android builds.',
   requiredCapabilities: [],
   evaluate: ({ metadata }) => {
@@ -63,8 +63,8 @@ export const androidArchiveSizeRule: Rule<AndroidMetadata> = {
     if (pkg.archiveSizeBytes > 200 * 1024 * 1024) {
       return {
         ruleId: 'RULE-AND-PKG-002',
-        outcome: 'fail',
-        evidence: `Archive size is ${mb(pkg.archiveSizeBytes)} MB, exceeding the 200 MB Google Play base delivery limit.${downloadSizeText}`,
+        outcome: 'needs-review',
+        evidence: `Archive size is ${mb(pkg.archiveSizeBytes)} MB. Review generated per-device delivery sizes in Play Console or bundletool; archive size alone does not establish a store size violation.${downloadSizeText}`,
         affectedFileOrConfig: 'Archive Root',
       };
     }

@@ -13,6 +13,7 @@ export interface ProvisioningProfileDetails {
   entitlements?: Record<string, unknown>;
   provisionsAllDevices?: boolean;
   hasDeviceList: boolean;
+  expiresAt?: string;
 }
 
 export function parseMobileProvisionBuffer(buffer: Buffer): ProvisioningProfileDetails | null {
@@ -54,6 +55,8 @@ export function parseMobileProvisionBuffer(buffer: Buffer): ProvisioningProfileD
     entitlements,
     provisionsAllDevices,
     hasDeviceList,
+    expiresAt: parsed['ExpirationDate'] instanceof Date ? parsed['ExpirationDate'].toISOString()
+      : typeof parsed['ExpirationDate'] === 'string' ? parsed['ExpirationDate'] : undefined,
   };
 }
 
@@ -74,6 +77,9 @@ export async function runMacOsCodesignVerify(appBundlePath: string): Promise<{
   }
 
   try {
+    await execFileAsync('codesign', ['--verify', '--deep', '--strict', '--all-architectures', '--verbose=2', '-R', 'anchor apple generic', appBundlePath], {
+      timeout: 30000, maxBuffer: 1024 * 1024, windowsHide: true,
+    });
     const { stdout, stderr } = await execFileAsync('codesign', ['-dvvv', appBundlePath], {
       timeout: 10000,
       windowsHide: true,
@@ -130,6 +136,7 @@ export function synthesizeIosSigningInfo(options: {
     teamId: profile?.teamId,
     provisioningProfilePresent: Boolean(profile),
     provisioningProfileType: profile?.type,
+    provisioningProfileExpiresAt: profile?.expiresAt,
     entitlements: profile?.entitlements,
     codesignCheckOutcome: codesignResult ? codesignResult.codesignCheckOutcome : 'not-checked',
     limitations,

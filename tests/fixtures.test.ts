@@ -31,8 +31,9 @@ describe('Fixture Parsing and Real Inspection', () => {
     expect(summary.artifact.platform).toBe('android');
     expect(summary.artifact.artifactType).toBe('aab');
     expect(summary.metadata.android?.signing.isBundleSigning).toBe(true);
-    expect(summary.metadata.android?.signing.signingVerified).toBe(true);
-    expect(summary.metadata.android?.signing.signers.length).toBeGreaterThan(0);
+    expect(summary.metadata.android?.signing.signingVerified).toBe(false);
+    expect(summary.metadata.android?.signing.signers).toHaveLength(0);
+    expect(summary.assessment.status).not.toBe('PASSED AVAILABLE CHECKS');
     // AAB should satisfy AAB submission format rule
     const aabRuleFinding = summary.stages
       .flatMap((s) => s.checks.flatMap((c) => c.findings))

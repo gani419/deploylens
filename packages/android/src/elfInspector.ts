@@ -11,6 +11,7 @@ export interface ParsedElfInfo {
   is16KbAligned: boolean;
   minLoadAlignmentBytes: number;
   errorMessage?: string;
+  loadSegmentCount?: number;
 }
 
 export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInfo {
@@ -45,6 +46,9 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
   const eiData = buffer.readUInt8(5); // 1 = Little-endian, 2 = Big-endian
   const is64Bit = eiClass === 2;
   const isLittleEndian = eiData === 1;
+  if (![1, 2].includes(eiClass) || ![1, 2].includes(eiData)) {
+    return { isElf: true, is64Bit, isLittleEndian, machine: 'Unknown', abi: 'unknown', is16KbAligned: false, minLoadAlignmentBytes: 0, errorMessage: 'Unsupported ELF class or byte order' };
+  }
 
   const readU16 = (off: number) => (isLittleEndian ? buffer.readUInt16LE(off) : buffer.readUInt16BE(off));
   const readU32 = (off: number) => (isLittleEndian ? buffer.readUInt32LE(off) : buffer.readUInt32BE(off));
@@ -89,6 +93,7 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
   // Parse program headers for PT_LOAD segment alignment
   let is16KbAligned = true;
   let minLoadAlignment = 0;
+  let loadSegmentCount = 0;
   const PT_LOAD = 1;
 
   try {
@@ -97,12 +102,14 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
       const ePhoOff = readU64(32);
       const ePhentSize = readU16(54);
       const ePhNum = readU16(56);
+      if (!Number.isSafeInteger(ePhoOff) || ePhoOff < 64 || ePhentSize < 56 || !ePhNum || ePhoOff + ePhNum * ePhentSize > buffer.length) throw new Error('Invalid or truncated ELF program header table');
 
       let phOffset = ePhoOff;
       for (let i = 0; i < ePhNum; i++) {
         if (phOffset + 56 > buffer.length) break;
         const pType = readU32(phOffset);
         if (pType === PT_LOAD) {
+          loadSegmentCount++;
           const pOffset = readU64(phOffset + 8);
           const pVaddr = readU64(phOffset + 16);
           const pAlign = readU64(phOffset + 48);
@@ -111,7 +118,7 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
             minLoadAlignment = pAlign;
           }
 
-          if (pAlign < 16384) {
+          if (!Number.isSafeInteger(pAlign) || !Number.isInteger(Math.log2(pAlign)) || pAlign < 16384) {
             is16KbAligned = false;
           }
           if (pAlign > 0 && pOffset % pAlign !== pVaddr % pAlign) {
@@ -125,12 +132,14 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
       const ePhoOff = readU32(28);
       const ePhentSize = readU16(42);
       const ePhNum = readU16(44);
+      if (ePhoOff < 52 || ePhentSize < 32 || !ePhNum || ePhoOff + ePhNum * ePhentSize > buffer.length) throw new Error('Invalid or truncated ELF program header table');
 
       let phOffset = ePhoOff;
       for (let i = 0; i < ePhNum; i++) {
         if (phOffset + 32 > buffer.length) break;
         const pType = readU32(phOffset);
         if (pType === PT_LOAD) {
+          loadSegmentCount++;
           const pOffset = readU32(phOffset + 4);
           const pVaddr = readU32(phOffset + 8);
           const pAlign = readU32(phOffset + 28);
@@ -139,7 +148,7 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
             minLoadAlignment = pAlign;
           }
 
-          if (pAlign < 16384) {
+          if (!Number.isInteger(Math.log2(pAlign)) || pAlign < 16384) {
             is16KbAligned = false;
           }
           if (pAlign > 0 && pOffset % pAlign !== pVaddr % pAlign) {
@@ -149,6 +158,7 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
         phOffset += ePhentSize > 0 ? ePhentSize : 32;
       }
     }
+    if (!loadSegmentCount) throw new Error('No ELF load segments found');
   } catch (err) {
     return {
       isElf: true,
@@ -170,6 +180,7 @@ export function inspectElfBuffer(buffer: Buffer, filePath: string): ParsedElfInf
     abi,
     is16KbAligned,
     minLoadAlignmentBytes: minLoadAlignment,
+    loadSegmentCount,
   };
 }
 
@@ -189,7 +200,9 @@ export function toNativeLibraryInfo(
     name,
     abi: elf.abi !== 'unknown' ? elf.abi : detectedAbi,
     fileSizeBytes: buffer.length,
-    is16KbAligned: elf.isElf ? elf.is16KbAligned : null,
+    is16KbAligned: elf.isElf && !elf.errorMessage ? elf.is16KbAligned : null,
     loadAlignmentBytes: elf.minLoadAlignmentBytes,
+    loadSegmentCount: elf.loadSegmentCount,
+    inspectionError: elf.errorMessage,
   };
 }

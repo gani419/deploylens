@@ -26,6 +26,7 @@ import {
   androidNative64BitRule,
   android16KbPageAlignmentRule,
   androidPackagingAlignmentRule,
+  androidBundlePageAlignmentRule,
   androidCleartextTrafficRule,
   androidSensitivePermissionsRule,
   androidExportedComponentsRule,
@@ -37,9 +38,16 @@ import {
   iosPurposeStringsRule,
   iosPrivacyManifestRule,
   iosSigningAndProvisioningRule,
+  iosBuildSdkRule,
 } from '@deploylens/rules';
 import {
   parseAxml,
+  parseProtoManifest,
+  resolveProtoLabel,
+  resolveArscLabel,
+  isResourceLabel,
+  inspectBundlePageAlignment,
+  verifyAabSignature,
   extractManifestMetadata,
   toNativeLibraryInfo,
   inspectApkSigningBlock,
@@ -48,7 +56,7 @@ import {
   verifyWithApksigner,
   verifyWithZipalign,
 } from '@deploylens/android';
-import { inspectIpaData } from '@deploylens/ios';
+import { inspectIpaData, parsePlistBuffer, runMacOsCodesignVerify } from '@deploylens/ios';
 import { generateStoreGuidance } from '@deploylens/store-guidance';
 import { SafeZipReader, type ZipEntryHeader } from './safeZip.js';
 import { TemporaryWorkspace } from './workspace.js';
@@ -78,7 +86,7 @@ export class DeployLensEngine {
   ): Promise<ScanSummary> {
     const scanId = `scan-${Date.now().toString(36)}-${Math.random().toString(36).substring(2, 6)}`;
     const scanRecord = { cancelled: false, workspace: undefined as TemporaryWorkspace | undefined };
-    this.activeScans.set(scanId, scanRecord);
+
 
     const startedAt = new Date().toISOString();
     const startTime = Date.now();
@@ -95,6 +103,7 @@ export class DeployLensEngine {
     }
 
     const stat = fs.statSync(resolvedPath);
+    if (!stat.isFile() || stat.size > 512 * 1024 * 1024) throw new Error('Select a regular build file up to 512 MB');
     const fileName = path.basename(resolvedPath);
     const sizeBytes = stat.size;
 
@@ -118,6 +127,7 @@ export class DeployLensEngine {
 
     const workspace = new TemporaryWorkspace(scanId);
     scanRecord.workspace = workspace;
+    this.activeScans.set(scanId, scanRecord);
 
     try {
       const capabilities = await this.detectCapabilities();
@@ -202,29 +212,18 @@ export class DeployLensEngine {
       throw new Error(`File "${path.basename(filePath)}" is not a valid ZIP/mobile build archive (invalid magic bytes)`);
     }
 
-    if (ext === '.aab') {
-      return { platform: 'android', artifactType: 'aab' };
-    }
-    if (ext === '.ipa') {
-      return { platform: 'ios', artifactType: 'ipa' };
-    }
-    if (ext === '.apk') {
-      return { platform: 'android', artifactType: 'apk' };
-    }
-
-    // Inspect archive contents to disambiguate
+    // Identify the payload before trusting the filename suffix.
     const zip = SafeZipReader.fromFile(filePath);
-    if (zip.hasEntry('Payload/')) {
-      return { platform: 'ios', artifactType: 'ipa' };
+    const candidates: Array<{ platform: Platform; artifactType: ArtifactType }> = [];
+    if (zip.getEntries().some(entry => /^Payload\/[^/]+\.app\/Info\.plist$/.test(entry.fileName))) candidates.push({ platform: 'ios', artifactType: 'ipa' });
+    if (zip.hasEntry('base/manifest/AndroidManifest.xml')) candidates.push({ platform: 'android', artifactType: 'aab' });
+    if (zip.hasEntry('AndroidManifest.xml')) candidates.push({ platform: 'android', artifactType: 'apk' });
+    if (candidates.length !== 1) throw new Error('Unsupported or ambiguous mobile archive. Select an APK, AAB or IPA with its original structure.');
+    const detected = candidates[0]!;
+    if (['.apk', '.aab', '.ipa'].includes(ext) && ext !== `.${detected.artifactType}`) {
+      throw new Error(`Filename extension ${ext} does not match detected ${detected.artifactType.toUpperCase()} contents.`);
     }
-    if (zip.hasEntry('base/manifest/AndroidManifest.xml') || zip.hasEntry('BundleConfig.pb')) {
-      return { platform: 'android', artifactType: 'aab' };
-    }
-    if (zip.hasEntry('AndroidManifest.xml')) {
-      return { platform: 'android', artifactType: 'apk' };
-    }
-
-    return { platform: 'android', artifactType: 'apk' };
+    return detected;
   }
 
   private async runAndroidInspection(
@@ -297,12 +296,12 @@ export class DeployLensEngine {
 
     // Stage 1: Validate artifact
     const fileBuffer = fs.readFileSync(artifact.path);
-    const zipReader = new SafeZipReader(fileBuffer);
+    const zipReader = new SafeZipReader(fileBuffer, { maxTotalUncompressedBytes: 1024 * 1024 * 1024 });
     const isAab = artifact.artifactType === 'aab';
 
     await executeStage(1, 'android-validate-artifact', 'Validate artifact', async () => {
       const requiredFile = isAab ? 'base/manifest/AndroidManifest.xml' : 'AndroidManifest.xml';
-      const hasManifest = zipReader.hasEntry(requiredFile) || zipReader.hasEntry('AndroidManifest.xml');
+      const hasManifest = zipReader.hasEntry(requiredFile);
 
       const check: CheckResult = {
         checkId: 'CHK-AND-ARCHIVE-INTEGRITY',
@@ -332,26 +331,26 @@ export class DeployLensEngine {
       : 'AndroidManifest.xml';
 
     const manifestBuf = zipReader.readEntry(manifestPath);
-    const parsedXml = manifestBuf ? parseAxml(manifestBuf) : null;
-    const manifestData = parsedXml
-      ? extractManifestMetadata(parsedXml)
-      : {
-          packageId: 'com.unknown.app',
-          versionCode: 1,
-          versionName: '1.0.0',
-          minSdkVersion: 21,
-          targetSdkVersion: 34,
-          maxSdkVersion: null,
-          maxSdkVersionDeclared: false,
-          appLabel: undefined,
-          debuggable: { value: false, isExplicit: false },
-          testOnly: { value: false, isExplicit: false },
-          usesCleartextTraffic: null,
-          networkSecurityConfigPresent: false,
-          permissions: [],
-          features: [],
-          components: [],
-        };
+    let parsedXml = manifestBuf ? parseAxml(manifestBuf) : null;
+    if (!parsedXml && manifestBuf && isAab) {
+      try { parsedXml = parseProtoManifest(manifestBuf); }
+      catch { throw new Error('AAB protobuf manifest could not be decoded; inspection is incomplete.'); }
+    }
+    if (!parsedXml || parsedXml.name !== 'manifest') {
+      throw new Error('Android manifest could not be decoded; inspection is incomplete. No default metadata was substituted.');
+    }
+    const manifestData = extractManifestMetadata(parsedXml);
+    const originalLabel = manifestData.appLabel;
+    let appLabelSource: AndroidMetadata['appLabelSource'] = originalLabel ? 'manifest' : 'unresolved';
+    if (isResourceLabel(originalLabel)) {
+      const resourceBuffer = zipReader.readEntry(isAab ? 'base/resources.pb' : 'resources.arsc');
+      try {
+        manifestData.appLabel = resourceBuffer && originalLabel
+          ? (isAab ? resolveProtoLabel(resourceBuffer, originalLabel) : resolveArscLabel(resourceBuffer, originalLabel)) : undefined;
+      } catch { manifestData.appLabel = undefined; }
+      appLabelSource = manifestData.appLabel ? 'resources' : 'unresolved';
+    }
+
 
     // Stage 2: Read app information
     await executeStage(2, 'android-read-app-info', 'Read app information', async () => {
@@ -458,19 +457,26 @@ export class DeployLensEngine {
       metaInfCert,
     });
 
-    if (!isAab && capabilities.apksigner.available && capabilities.apksigner.path) {
-      try {
-        const apksignerRes = await verifyWithApksigner(capabilities.apksigner.path, artifact.path);
-        if (apksignerRes.verified) {
-          signingInfo.signingVerified = true;
-          signingInfo.schemeV1 = apksignerRes.v1;
-          signingInfo.schemeV2 = apksignerRes.v2;
-          signingInfo.schemeV3 = apksignerRes.v3;
-          signingInfo.schemeV4 = apksignerRes.v4;
-        }
-      } catch {
-        // Fall back to built-in inspection
-      }
+    if (isAab) {
+      const result = await verifyAabSignature(artifact.path);
+      signingInfo.verificationOutcome = result.outcome;
+      signingInfo.signingVerified = result.outcome === 'pass';
+      signingInfo.signers = result.signers;
+      signingInfo.warnings = result.outcome === 'pass' ? [] : [
+        result.outcome === 'not-checked' ? 'JDK jarsigner unavailable; AAB signature not checked.' : 'JAR cryptographic verification failed or unsigned entries were detected.',
+      ];
+    } else if (capabilities.apksigner.available && capabilities.apksigner.path) {
+      const result = await verifyWithApksigner(capabilities.apksigner.path, artifact.path);
+      signingInfo.verificationOutcome = result.outcome;
+      signingInfo.signingVerified = result.verified;
+      if (result.verified) {
+        signingInfo.schemeV1 = result.v1;
+        signingInfo.schemeV2 = result.v2;
+        signingInfo.schemeV3 = result.v3;
+        signingInfo.schemeV4 = result.v4;
+        signingInfo.warnings = [];
+      } else signingInfo.warnings = [result.outcome === 'not-checked'
+        ? 'apksigner could not execute; signature not checked.' : 'apksigner rejected the cryptographic signature.'];
     }
 
     await executeStage(5, 'android-inspect-signing', 'Inspect signing', async () => {
@@ -508,7 +514,9 @@ export class DeployLensEngine {
 
     const abis: string[] = Array.from(new Set(nativeLibs.map((l) => l.abi))).filter((a) => a !== 'unknown');
     const has64Bit = abis.some((a) => a === 'arm64-v8a' || a === 'x86_64');
-    const all16KbAligned = nativeLibs.length > 0 ? nativeLibs.every((l) => l.is16KbAligned === true) : true;
+    const alignmentLibraries = nativeLibs.filter(lib => ['arm64-v8a', 'x86_64'].includes(lib.abi));
+    const all16KbAligned = !alignmentLibraries.length || alignmentLibraries.some(lib => lib.is16KbAligned === null)
+      ? null : alignmentLibraries.every(lib => lib.is16KbAligned === true);
 
     let packagingAlignmentOk: boolean | null = null;
     if (!isAab && capabilities.zipalign.available && capabilities.zipalign.path) {
@@ -520,11 +528,13 @@ export class DeployLensEngine {
       }
     }
 
+    const bundleAlignment = isAab ? inspectBundlePageAlignment(zipReader.readEntry('BundleConfig.pb') ?? undefined) : {};
     const nativeSummary: NativeLibrarySummary = {
+      ...bundleAlignment,
       abis,
       has64BitCoverage: has64Bit,
       libraries: nativeLibs,
-      allLibraries16KbAligned: nativeLibs.length > 0 ? all16KbAligned : null,
+      allLibraries16KbAligned: all16KbAligned,
       packagingAlignmentOk,
       alignmentReport: nativeLibs.length > 0
         ? `Audited ${nativeLibs.length} native libraries.`
@@ -536,6 +546,7 @@ export class DeployLensEngine {
         platform: 'android',
         signing: signingInfo,
         nativeLibraries: nativeSummary,
+        targetSdkVersion: manifestData.targetSdkVersion,
       };
 
       const res64 = androidNative64BitRule.evaluate({
@@ -550,6 +561,7 @@ export class DeployLensEngine {
         metadata: dummyMeta as AndroidMetadata,
         toolCapabilities: capBooleans,
       });
+      const resBundleAlign = androidBundlePageAlignmentRule.evaluate({ metadata: dummyMeta as AndroidMetadata, toolCapabilities: capBooleans });
 
       return [
         {
@@ -558,6 +570,8 @@ export class DeployLensEngine {
           outcome: res64.outcome,
           findings: [createFindingFromRule(androidNative64BitRule, res64)],
         },
+        { checkId: 'CHK-AND-AAB-PAGE-ALIGNMENT', name: 'AAB Generated APK Page Alignment', outcome: resBundleAlign.outcome,
+          findings: [createFindingFromRule(androidBundlePageAlignmentRule, resBundleAlign)] },
         {
           checkId: 'CHK-AND-16KB-ALIGNMENT',
           name: '16 KB ELF Page Alignment',
@@ -701,6 +715,8 @@ export class DeployLensEngine {
       platform: 'android',
       packageId: manifestData.packageId,
       appLabel: manifestData.appLabel,
+      appLabelSource,
+      profiling: { profileableByShell: manifestData.profileableByShell, runtimePerformed: false },
       versionName: manifestData.versionName,
       versionCode: manifestData.versionCode,
       minSdkVersion: manifestData.minSdkVersion,
@@ -739,7 +755,7 @@ export class DeployLensEngine {
         {
           checkId: 'CHK-AND-STORE-GUIDANCE',
           name: 'Release Readiness & Listing Guidance Generation',
-          outcome: assessment.status === 'ACTION REQUIRED' ? 'fail' : assessment.status === 'REVIEW REQUIRED' ? 'needs-review' : 'pass',
+          outcome: 'not-applicable',
           findings: [],
           details: `Readiness: ${assessment.status}. ${storeGuidance.checklist.length} checklist items generated.`,
         },
@@ -752,7 +768,7 @@ export class DeployLensEngine {
       artifact,
       metadata: { android: androidMetadata },
       stages,
-      assessment,
+      assessment: computeAssessment(stages, capabilities),
       storeGuidance,
       startedAt,
       completedAt,
@@ -829,8 +845,7 @@ export class DeployLensEngine {
     };
 
     // Stage 1: Validate IPA archive and Payload structure
-    const fileBuffer = fs.readFileSync(artifact.path);
-    const zipReader = new SafeZipReader(fileBuffer);
+    const zipReader = SafeZipReader.fromFile(artifact.path, { maxTotalUncompressedBytes: 1024 * 1024 * 1024 });
     let appBundleDir = '';
 
     await executeStage(1, 'ios-validate-artifact', 'Validate IPA archive and Payload structure', async () => {
@@ -874,23 +889,15 @@ export class DeployLensEngine {
     });
 
     const entries = zipReader.getEntries();
-    const infoPlistPath = entries.find((e: ZipEntryHeader) => e.fileName.startsWith(appBundleDir) && e.fileName.endsWith('Info.plist'))?.fileName;
-    const infoPlistBuffer = infoPlistPath ? (zipReader.readEntry(infoPlistPath) ?? undefined) : undefined;
-
-    const provisionPath = entries.find((e: ZipEntryHeader) => e.fileName.startsWith(appBundleDir) && e.fileName.endsWith('embedded.mobileprovision'))?.fileName;
-    const mobileProvisionBuffer = provisionPath ? (zipReader.readEntry(provisionPath) ?? undefined) : undefined;
-
-    const privacyPath = entries.find((e: ZipEntryHeader) => e.fileName.startsWith(appBundleDir) && e.fileName.endsWith('PrivacyInfo.xcprivacy'))?.fileName;
-    const privacyManifestBuffer = privacyPath ? (zipReader.readEntry(privacyPath) ?? undefined) : undefined;
-
-    const hasCodeSig = entries.some((e: ZipEntryHeader) => e.fileName.startsWith(appBundleDir) && e.fileName.includes('_CodeSignature/'));
-
-    const mainBinaryEntry = entries.find((e: ZipEntryHeader) => {
-      if (!e.fileName.startsWith(appBundleDir)) return false;
-      const rel = e.fileName.slice(appBundleDir.length);
-      return !rel.includes('/') && !rel.includes('.');
-    });
-    const mainBinaryBuffer = mainBinaryEntry ? (zipReader.readEntry(mainBinaryEntry.fileName) ?? undefined) : undefined;
+    if (!appBundleDir) throw new Error('Missing main application Payload bundle');
+    const infoPlistBuffer = zipReader.readEntry(`${appBundleDir}Info.plist`) ?? undefined;
+    const infoPlist = infoPlistBuffer ? parsePlistBuffer(infoPlistBuffer) : null;
+    const mobileProvisionBuffer = zipReader.readEntry(`${appBundleDir}embedded.mobileprovision`) ?? undefined;
+    const privacyManifestBuffer = zipReader.readEntry(`${appBundleDir}PrivacyInfo.xcprivacy`) ?? undefined;
+    const hasCodeSig = zipReader.hasEntry(`${appBundleDir}_CodeSignature/CodeResources`);
+    const executable = infoPlist?.['CFBundleExecutable'];
+    const mainBinaryBuffer = typeof executable === 'string' && !/[\\/]/.test(executable)
+      ? zipReader.readEntry(`${appBundleDir}${executable}`) ?? undefined : undefined;
 
     const iosMetadata = inspectIpaData({
       archiveSizeBytes: artifact.sizeBytes,
@@ -909,8 +916,8 @@ export class DeployLensEngine {
         {
           checkId: 'CHK-IOS-INFO-PLIST',
           name: 'Info.plist Parsing',
-          outcome: infoPlistBuffer ? 'pass' : 'fail',
-          findings: infoPlistBuffer
+          outcome: infoPlist ? 'pass' : 'fail',
+          findings: infoPlist
             ? []
             : [
                 {
@@ -940,7 +947,9 @@ export class DeployLensEngine {
         toolCapabilities: capBooleans,
       });
 
+      const resSdk = iosBuildSdkRule.evaluate({ metadata: iosMetadata, toolCapabilities: capBooleans });
       return [
+        { checkId: 'CHK-IOS-BUILD-SDK', name: 'App Store Build SDK', outcome: resSdk.outcome, findings: [createFindingFromRule(iosBuildSdkRule, resSdk)] },
         {
           checkId: 'CHK-IOS-BUNDLE-ID',
           name: 'Bundle Identifier and Versioning',
@@ -1014,6 +1023,24 @@ export class DeployLensEngine {
 
     // Stage 7: Inspect entitlements/signing where tools and artifact data allow
     await executeStage(7, 'ios-inspect-entitlements-signing', 'Inspect entitlements and code signature', async () => {
+      if (capabilities.codesign.available && process.platform === 'darwin') {
+        const workspace = this.activeScans.get(scanId)?.workspace;
+        if (workspace) {
+          for (const entry of entries) {
+            if (scanRecord.cancelled) throw new Error('Scan cancelled');
+            if (entry.fileName.startsWith(appBundleDir) && !entry.fileName.endsWith('/')) {
+              zipReader.extractEntrySafely(entry.fileName, workspace.dir);
+            }
+          }
+          const result = await runMacOsCodesignVerify(workspace.resolvePath(appBundleDir));
+          iosMetadata.signing.codesignCheckOutcome = result.codesignCheckOutcome;
+          iosMetadata.signing.isSigned = result.isSigned;
+          iosMetadata.signing.signerIdentity = result.signerIdentity;
+          iosMetadata.signing.authorityNames = result.authorityNames;
+          iosMetadata.signing.limitations.push(...result.limitations);
+        }
+      }
+
       const resSign = iosSigningAndProvisioningRule.evaluate({
         metadata: iosMetadata,
         toolCapabilities: capBooleans,
@@ -1043,7 +1070,7 @@ export class DeployLensEngine {
         {
           checkId: 'CHK-IOS-STORE-GUIDANCE',
           name: 'Release Readiness & Listing Guidance Generation',
-          outcome: assessment.status === 'ACTION REQUIRED' ? 'fail' : assessment.status === 'REVIEW REQUIRED' ? 'needs-review' : 'pass',
+          outcome: 'not-applicable',
           findings: [],
           details: `Readiness: ${assessment.status}. ${storeGuidance.checklist.length} checklist items generated.`,
         },
@@ -1056,7 +1083,7 @@ export class DeployLensEngine {
       artifact,
       metadata: { ios: iosMetadata },
       stages,
-      assessment,
+      assessment: computeAssessment(stages, capabilities),
       storeGuidance,
       startedAt,
       completedAt,

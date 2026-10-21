@@ -9,3 +9,5 @@ Thumbs.db
 .turbo
 .env
 .env.local
+test-results/
+playwright-report/

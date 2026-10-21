@@ -14,7 +14,12 @@ function createZip(entries: Array<{ name: string; content: Buffer }>): Buffer {
   for (const entry of entries) {
     const nameBuf = Buffer.from(entry.name, 'utf8');
     const compData = entry.content; // stored method 0
-    const crc = 0;
+    let crc = 0xffffffff;
+    for (const byte of compData) {
+      crc ^= byte;
+      for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+    }
+    crc = (crc ^ 0xffffffff) >>> 0;
     const compSize = compData.length;
     const uncompSize = compData.length;
 
@@ -206,11 +211,22 @@ export function generateAllFixtures(rootDir: string) {
   fs.writeFileSync(path.join(androidDir, 'valid-app.apk'), validApkZip);
 
   // 2. fixtures/android/test-app.aab
-  const aabManifest = createXmlManifest({
-    pkg: 'com.deploylens.sampleaab',
-    targetSdk: 34,
-    minSdk: 26,
-  });
+  const pbVarint = (value: number): Buffer => {
+    const bytes: number[] = [];
+    do { const byte = value & 127; value = Math.floor(value / 128); bytes.push(byte | (value ? 128 : 0)); } while (value);
+    return Buffer.from(bytes);
+  };
+  const pbField = (id: number, value: string | Buffer): Buffer => {
+    const data = typeof value === 'string' ? Buffer.from(value) : value;
+    return Buffer.concat([pbVarint(id * 8 + 2), pbVarint(data.length), data]);
+  };
+  const pbAttr = (name: string, value: string) => pbField(4, Buffer.concat([pbField(2, name), pbField(3, value)]));
+  const pbElement = (name: string, attrs: Buffer[], children: Buffer[] = []) => pbField(1,
+    Buffer.concat([pbField(3, name), ...attrs, ...children.map(child => pbField(5, child))]));
+  const aabManifest = pbElement('manifest', [pbAttr('package', 'com.deploylens.sampleaab'), pbAttr('versionCode', '10'), pbAttr('versionName', '1.0.0')], [
+    pbElement('uses-sdk', [pbAttr('minSdkVersion', '26'), pbAttr('targetSdkVersion', '34')]),
+    pbElement('application', [pbAttr('label', 'SampleApp'), pbAttr('debuggable', 'false')]),
+  ]);
   const aabZip = createZip([
     { name: 'base/manifest/AndroidManifest.xml', content: aabManifest },
     { name: 'BundleConfig.pb', content: Buffer.from('proto-bundle-config', 'ascii') },

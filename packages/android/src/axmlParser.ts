@@ -29,6 +29,7 @@ export interface ParsedManifestData {
   maxSdkVersion: number | null;
   maxSdkVersionDeclared: boolean;
   appLabel?: string;
+  profileableByShell: boolean | null;
   debuggable: { value: boolean; isExplicit: boolean };
   testOnly: { value: boolean; isExplicit: boolean };
   usesCleartextTraffic: boolean | null;
@@ -46,9 +47,9 @@ export interface ParsedManifestData {
 
 // Chunk Types
 const CHUNK_AXML_FILE = 0x00080003;
-const CHUNK_STRING_POOL = 0x00010001;
-const CHUNK_START_ELEMENT = 0x00080102;
-const CHUNK_END_ELEMENT = 0x00080103;
+const CHUNK_STRING_POOL = 0x0001;
+const CHUNK_START_ELEMENT = 0x0102;
+const CHUNK_END_ELEMENT = 0x0103;
 
 // Attribute types
 const TYPE_INT_BOOLEAN = 0x12;
@@ -71,7 +72,7 @@ export function parseAxml(buffer: Buffer): ParsedXmlElement | null {
   let rootElement: ParsedXmlElement | null = null;
 
   while (offset + 8 <= buffer.length) {
-    const chunkType = buffer.readUInt32LE(offset);
+    const chunkType = buffer.readUInt16LE(offset);
     const chunkSize = buffer.readUInt32LE(offset + 4);
 
     if (chunkSize < 8 || offset + chunkSize > buffer.length) {
@@ -83,7 +84,7 @@ export function parseAxml(buffer: Buffer): ParsedXmlElement | null {
     } else if (chunkType === CHUNK_START_ELEMENT) {
       if (offset + 36 <= buffer.length) {
         const nameIdx = buffer.readInt32LE(offset + 20);
-        buffer.readUInt16LE(offset + 24); // attrStart
+        const attrStart = buffer.readUInt16LE(offset + 24);
         const attrSize = buffer.readUInt16LE(offset + 26);
         const attrCount = buffer.readUInt16LE(offset + 28);
 
@@ -91,9 +92,10 @@ export function parseAxml(buffer: Buffer): ParsedXmlElement | null {
         const attributes: Record<string, string> = {};
         const rawAttrs: ParsedXmlAttribute[] = [];
 
-        let attrOffset = offset + 36;
+        let attrOffset = offset + 16 + attrStart;
+        if (attrStart < 20 || attrSize < 20 || attrOffset + attrCount * attrSize > offset + chunkSize) throw new Error('Malformed manifest attributes');
         for (let i = 0; i < attrCount; i++) {
-          if (attrOffset + 20 > offset + chunkSize) break;
+          if (attrOffset + 20 > offset + chunkSize) throw new Error('Truncated manifest attribute');
           const uriIdx = buffer.readInt32LE(attrOffset);
           const aNameIdx = buffer.readInt32LE(attrOffset + 4);
           const valIdx = buffer.readInt32LE(attrOffset + 8);
@@ -106,6 +108,8 @@ export function parseAxml(buffer: Buffer): ParsedXmlElement | null {
           let valStr = '';
           if (type === TYPE_INT_BOOLEAN) {
             valStr = data !== 0 ? 'true' : 'false';
+          } else if (type === 0x01) {
+            valStr = `@0x${data.toString(16).padStart(8, '0')}`;
           } else if (valIdx >= 0 && valIdx < stringPool.length) {
             valStr = stringPool[valIdx]!;
           } else {
@@ -220,6 +224,7 @@ export function extractManifestMetadata(root: ParsedXmlElement): ParsedManifestD
   let maxSdkVersion: number | null = null;
   let maxSdkVersionDeclared = false;
   let appLabel: string | undefined = undefined;
+  let profileableByShell: boolean | null = false;
   let debuggableValue = false;
   let debuggableExplicit = false;
   let testOnlyValue = false;
@@ -274,6 +279,10 @@ export function extractManifestMetadata(root: ParsedXmlElement): ParsedManifestD
       }
 
       for (const compNode of child.children) {
+        if (compNode.name === 'profileable') {
+          const shell = compNode.attributes['shell'];
+          profileableByShell = shell === 'true' ? true : shell === undefined || shell === 'false' ? false : null;
+        }
         if (
           compNode.name === 'activity' ||
           compNode.name === 'service' ||
@@ -309,6 +318,7 @@ export function extractManifestMetadata(root: ParsedXmlElement): ParsedManifestD
     maxSdkVersion,
     maxSdkVersionDeclared,
     appLabel,
+    profileableByShell,
     debuggable: { value: debuggableValue, isExplicit: debuggableExplicit },
     testOnly: { value: testOnlyValue, isExplicit: testOnlyExplicit },
     usesCleartextTraffic,
@@ -367,6 +377,11 @@ function parseTextManifest(xmlText: string): ParsedXmlElement {
     rawAttributes: [],
     children: [],
   };
+  const profileable = /<profileable\b[^>]*>/.exec(xmlText);
+  if (profileable) {
+    const shell = /android:shell=["']([^"']+)["']/.exec(profileable[0]);
+    appElem.children.push({ name: 'profileable', attributes: shell ? { shell: shell[1]! } : {}, rawAttributes: [], children: [] });
+  }
 
   // Find permissions
   const permRegex = /<uses-permission[^>]*android:name=["']([^"']+)["'][^>]*\/>/g;

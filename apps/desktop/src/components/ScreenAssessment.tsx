@@ -22,11 +22,6 @@ export const ScreenAssessment: React.FC<ScreenAssessmentProps> = ({
   const { assessment, artifact, metadata } = summary;
   const allFindings = summary.stages.flatMap((s) => s.checks.flatMap((c) => c.findings));
 
-  const blockers = allFindings.filter((f) => f.severity === 'blocker');
-  const policyRisks = allFindings.filter((f) => f.severity === 'risk');
-  const securityConcerns = allFindings.filter((f) => f.severity === 'security');
-  const qualityRecommendations = allFindings.filter((f) => f.severity === 'quality');
-
   const filteredFindings = allFindings.filter((f) => {
     if (filterSeverity === 'all') return true;
     return f.severity === filterSeverity;

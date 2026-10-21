@@ -3,7 +3,6 @@ import {
   MANDATORY_UNVERIFIED_AREAS,
   type ValidationStage,
   type ScanAssessment,
-  type Finding,
   type ReadinessStatus,
   type CapabilityReport,
 } from '@deploylens/contracts';
@@ -24,8 +23,7 @@ export function computeAssessment(
   let qualityRecommendations = 0;
   let manualTestingRequirements = 0;
 
-  const allFindings: Finding[] = [];
-  let hasStageError = false;
+  let hasStageError = stages.length === 0;
 
   for (const stage of stages) {
     if (stage.lifecycle === 'error') {
@@ -36,7 +34,8 @@ export function computeAssessment(
       if (check.outcome === 'pass') {
         passedCheckCount++;
       } else if (check.outcome === 'fail') {
-        blockerCount++;
+        if (!check.findings.length || check.findings.some(f => f.outcome === 'fail' && f.severity === 'blocker')) blockerCount++;
+        else warningReviewCount++;
       } else if (check.outcome === 'needs-review') {
         warningReviewCount++;
       } else if (check.outcome === 'not-checked') {
@@ -46,7 +45,7 @@ export function computeAssessment(
       }
 
       for (const finding of check.findings) {
-        allFindings.push(finding);
+        if (finding.outcome === 'pass' || finding.outcome === 'not-applicable') continue;
         if (finding.severity === 'blocker') {
           // already counted in blockerCount
         } else if (finding.severity === 'risk') {
@@ -109,7 +108,7 @@ export function computeAssessment(
     coverageRatio: {
       performed: performedCount,
       totalPossible: totalPossible > 0 ? totalPossible : 1,
-      description: `${performedCount} of ${totalPossible} checks executed (${notCheckedCount} skipped due to missing host capabilities).`,
+      description: `${performedCount} of ${totalPossible} applicable checks executed (${notCheckedCount} not checked).`,
     },
     unverifiedAreas: MANDATORY_UNVERIFIED_AREAS,
     toolVersionsUsed,

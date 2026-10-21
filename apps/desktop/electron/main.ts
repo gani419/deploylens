@@ -20,7 +20,7 @@ function createWindow() {
     title: 'DeployLens',
     backgroundColor: '#090d16',
     webPreferences: {
-      preload: path.join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.cjs'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: true,
@@ -29,10 +29,8 @@ function createWindow() {
 
   // Security: Block all in-app navigation outside renderer
   mainWindow.webContents.on('will-navigate', (event, url) => {
-    if (!url.startsWith('http://localhost') && !url.startsWith('file://')) {
-      event.preventDefault();
-      shell.openExternal(url);
-    }
+    event.preventDefault();
+    if (/^https?:\/\//.test(url)) void shell.openExternal(url);
   });
 
   // Security: Deny window.open popups, open external safe URLs in system browser
@@ -127,6 +125,9 @@ ipcMain.handle('deploylens:detect-capabilities', async () => {
 
 // IPC Handler: Inspect artifact
 ipcMain.handle('deploylens:inspect-artifact', async (event, request: unknown) => {
+  if (!mainWindow || event.sender !== mainWindow.webContents || event.senderFrame !== mainWindow.webContents.mainFrame) {
+    throw new Error('Untrusted scan request');
+  }
   if (!request || typeof request !== 'object') {
     throw new Error('Invalid scan request payload');
   }

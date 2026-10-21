@@ -17,6 +17,7 @@ import {
   androidNative64BitRule,
   android16KbPageAlignmentRule,
   androidPackagingAlignmentRule,
+  androidBundlePageAlignmentRule,
 } from './android/nativeRules.js';
 import {
   androidCleartextTrafficRule,
@@ -38,6 +39,7 @@ import {
 } from './ios/securityRules.js';
 import { iosPrivacyManifestRule } from './ios/privacyRules.js';
 import { iosSigningAndProvisioningRule } from './ios/signingRules.js';
+import { iosBuildSdkRule } from './ios/sdkRules.js';
 
 export const ANDROID_RULES: Rule<AndroidMetadata>[] = [
   androidTargetSdkRule,
@@ -50,6 +52,7 @@ export const ANDROID_RULES: Rule<AndroidMetadata>[] = [
   androidNative64BitRule,
   android16KbPageAlignmentRule,
   androidPackagingAlignmentRule,
+  androidBundlePageAlignmentRule,
   androidCleartextTrafficRule,
   androidSensitivePermissionsRule,
   androidExportedComponentsRule,
@@ -58,6 +61,7 @@ export const ANDROID_RULES: Rule<AndroidMetadata>[] = [
 ];
 
 export const IOS_RULES: Rule<IosMetadata>[] = [
+  iosBuildSdkRule,
   iosBundleIdentityRule,
   iosMinimumOsAndDevicesRule,
   iosTransportSecurityRule,

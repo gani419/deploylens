@@ -137,7 +137,7 @@ async function detectBundletool(): Promise<ToolCapability> {
       path: null,
       supportedFeatures: [],
       limitations: [
-        'bundletool jar not found on PATH. DeployLens uses built-in ZIP/AXML parser for AAB inspection.',
+        'bundletool jar not found on PATH. DeployLens uses a built-in protobuf manifest parser for AAB inspection.',
       ],
     };
   }
@@ -175,7 +175,7 @@ async function detectApksigner(): Promise<ToolCapability> {
       version: null,
       path: null,
       supportedFeatures: [],
-      limitations: ['apksigner not found; DeployLens uses built-in binary APK Signing Block verifier.'],
+      limitations: ['apksigner not found; Built-in signing block inspection is structural only; cryptographic verification is not checked.'],
     };
   }
 }

@@ -9,12 +9,15 @@ export interface ZipEntryHeader {
   uncompressedSize: number;
   localHeaderOffset: number;
   dataOffset?: number;
+  crc32: number;
+  unixMode: number;
 }
 
 export interface SafeZipOptions {
   maxEntryCount?: number;
   maxTotalUncompressedBytes?: number;
   maxCompressionRatio?: number;
+  maxEntryUncompressedBytes?: number;
 }
 
 const DEFAULT_MAX_ENTRIES = 50000;
@@ -25,9 +28,11 @@ export class SafeZipReader {
   private buffer: Buffer;
   private entries: Map<string, ZipEntryHeader> = new Map();
   private totalUncompressedBytes = 0;
+  private maxEntryBytes: number;
 
   constructor(buffer: Buffer, options: SafeZipOptions = {}) {
     this.buffer = buffer;
+    this.maxEntryBytes = options.maxEntryUncompressedBytes ?? 256 * 1024 * 1024;
     this.parseCentralDirectory(
       options.maxEntryCount ?? DEFAULT_MAX_ENTRIES,
       options.maxTotalUncompressedBytes ?? DEFAULT_MAX_UNCOMPRESSED_BYTES,
@@ -37,8 +42,8 @@ export class SafeZipReader {
 
   static fromFile(filePath: string, options: SafeZipOptions = {}): SafeZipReader {
     const stat = fs.statSync(filePath);
-    if (stat.size > 2 * 1024 * 1024 * 1024) {
-      throw new Error(`File size ${stat.size} bytes exceeds maximum supported scan limit of 2GB`);
+    if (stat.size > 512 * 1024 * 1024) {
+      throw new Error('Archive exceeds the 512 MB scan limit');
     }
     const buf = fs.readFileSync(filePath);
     return new SafeZipReader(buf, options);
@@ -71,17 +76,19 @@ export class SafeZipReader {
     const cdTotalEntries = buf.readUInt16LE(eocdOffset + 10);
     const cdSize = buf.readUInt32LE(eocdOffset + 12);
     const cdOffset = buf.readUInt32LE(eocdOffset + 16);
+    if (cdTotalEntries === 0xffff || cdSize === 0xffffffff || cdOffset === 0xffffffff) throw new Error('ZIP64 archives are not supported');
 
     if (cdTotalEntries > maxEntries) {
       throw new Error(`Archive exceeds maximum entry limit of ${maxEntries} (found ${cdTotalEntries} entries)`);
     }
 
-    if (cdOffset + cdSize > buf.length) {
+    if (cdOffset + cdSize > eocdOffset) {
       throw new Error('Malformed archive: Central Directory extends beyond file boundaries');
     }
 
     let cur = cdOffset;
     const cdEnd = cdOffset + cdSize;
+    let parsedEntries = 0;
 
     while (cur + 46 <= cdEnd) {
       const signature = buf.readUInt32LE(cur);
@@ -96,15 +103,21 @@ export class SafeZipReader {
       const extraLen = buf.readUInt16LE(cur + 30);
       const commentLen = buf.readUInt16LE(cur + 32);
       const localHeaderOffset = buf.readUInt32LE(cur + 42);
+      const crc32 = buf.readUInt32LE(cur + 16);
+      const unixMode = buf.readUInt32LE(cur + 38) >>> 16;
+      if (buf.readUInt16LE(cur + 8) & 1) throw new Error('Encrypted archives are not supported');
+      if (++parsedEntries > maxEntries) throw new Error('Archive entry limit exceeded');
+      if (uncompressedSize > this.maxEntryBytes) throw new Error('Archive entry exceeds decompression limit');
 
       const nameStart = cur + 46;
-      if (nameStart + fileNameLen > buf.length) {
+      if (nameStart + fileNameLen + extraLen + commentLen > cdEnd) {
         throw new Error('Malformed archive: entry name extends beyond file boundary');
       }
 
       const rawFileName = buf.toString('utf8', nameStart, nameStart + fileNameLen);
       // Normalize path separators to forward slash
       const fileName = rawFileName.replace(/\\/g, '/');
+      if (fileName.includes('\0') || this.entries.has(fileName)) throw new Error('Invalid or duplicate archive entry');
 
       // Security Check: Path Traversal prevention (Zip Slip)
       if (
@@ -136,10 +149,13 @@ export class SafeZipReader {
         compressedSize,
         uncompressedSize,
         localHeaderOffset,
+        crc32,
+        unixMode,
       });
 
       cur += 46 + fileNameLen + extraLen + commentLen;
     }
+    if (cur !== cdEnd || parsedEntries !== cdTotalEntries) throw new Error('Malformed central directory entry count');
   }
 
   getEntries(): ZipEntryHeader[] {
@@ -174,19 +190,22 @@ export class SafeZipReader {
 
     const compressedData = buf.subarray(dataStart, dataEnd);
 
+    let data: Buffer;
     if (header.compressionMethod === 0) {
       // Stored (no compression)
-      return Buffer.from(compressedData);
+      data = Buffer.from(compressedData);
     } else if (header.compressionMethod === 8) {
       // Deflated
       try {
-        return zlib.inflateRawSync(compressedData);
+        data = zlib.inflateRawSync(compressedData, { maxOutputLength: Math.min(this.maxEntryBytes, header.uncompressedSize || 1) });
       } catch (err: any) {
         throw new Error(`Failed to decompress entry "${entryPath}": ${err.message}`);
       }
     } else {
       throw new Error(`Unsupported compression method ${header.compressionMethod} in entry "${entryPath}"`);
     }
+    if (data.length !== header.uncompressedSize || crc32(data) !== header.crc32) throw new Error(`Archive integrity check failed for "${entryPath}"`);
+    return data;
   }
 
   /**
@@ -194,6 +213,8 @@ export class SafeZipReader {
    */
   extractEntrySafely(entryPath: string, destinationDir: string): string {
     const normalized = entryPath.replace(/\\/g, '/');
+    const entry = this.entries.get(normalized);
+    if (entry && (entry.unixMode & 0xf000) === 0xa000) throw new Error('Symbolic links are not supported for extraction');
     const data = this.readEntry(normalized);
     if (!data) {
       throw new Error(`Entry "${entryPath}" not found in archive`);
@@ -209,6 +230,20 @@ export class SafeZipReader {
 
     fs.mkdirSync(path.dirname(targetFile), { recursive: true });
     fs.writeFileSync(targetFile, data);
+    if (entry && (entry.unixMode & 0o111)) fs.chmodSync(targetFile, 0o755);
     return targetFile;
   }
+}
+
+const CRC_TABLE = Uint32Array.from({ length: 256 }, (_, value) => {
+  let crc = value;
+  for (let bit = 0; bit < 8; bit++) crc = (crc >>> 1) ^ ((crc & 1) ? 0xedb88320 : 0);
+  return crc >>> 0;
+});
+export function crc32(data: Buffer): number {
+  let crc = 0xffffffff;
+  for (const byte of data) {
+    crc = (crc >>> 8) ^ CRC_TABLE[(crc ^ byte) & 255]!;
+  }
+  return (crc ^ 0xffffffff) >>> 0;
 }

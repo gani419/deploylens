@@ -1,0 +1,11 @@
+.git
+**/node_modules
+**/dist
+**/dist-electron
+test-results
+playwright-report
+coverage
+.env*
+.aws
+.codex
+.agents

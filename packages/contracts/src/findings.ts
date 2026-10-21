@@ -18,6 +18,12 @@ export interface Finding {
   effectiveDates?: string;
   isSuspectedHeuristic?: boolean;
   applicabilityNote?: string;
+  guidance?: {
+    meaning: string;
+    steps: string[];
+    verification: string[];
+    limitation: string;
+  };
 }
 
 export interface CheckResult {

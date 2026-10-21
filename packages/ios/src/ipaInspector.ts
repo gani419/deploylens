@@ -30,15 +30,16 @@ export function inspectIpaData(archiveData: IpaArchiveData): IosMetadata {
   const infoPlist = infoPlistBuffer ? parsePlistBuffer(infoPlistBuffer) : null;
 
   // Extract Info.plist fields
-  const bundleIdentifier = String(infoPlist?.['CFBundleIdentifier'] || 'com.unknown.app');
+  if (!infoPlist) throw new Error('Main application Info.plist could not be parsed');
+  const bundleIdentifier = String(infoPlist['CFBundleIdentifier'] || '');
   const displayName = String(
     infoPlist?.['CFBundleDisplayName'] ||
     infoPlist?.['CFBundleName'] ||
-    'iOS App'
+    ''
   );
-  const marketingVersion = String(infoPlist?.['CFBundleShortVersionString'] || '1.0.0');
-  const buildNumber = String(infoPlist?.['CFBundleVersion'] || '1');
-  const minimumOsVersion = String(infoPlist?.['MinimumOSVersion'] || '15.0');
+  const marketingVersion = String(infoPlist['CFBundleShortVersionString'] || '');
+  const buildNumber = String(infoPlist['CFBundleVersion'] || '');
+  const minimumOsVersion = String(infoPlist['MinimumOSVersion'] || '');
 
   // Declared device families: 1 = iPhone, 2 = iPad, 3 = Apple TV, 4 = Watch, 6 = Vision
   const rawFamilies = infoPlist?.['UIDeviceFamily'];
@@ -56,9 +57,6 @@ export function inspectIpaData(archiveData: IpaArchiveData): IosMetadata {
     const num = Number(rawFamilies);
     if (num === 1) declaredDeviceFamilies.push('iPhone');
     else if (num === 2) declaredDeviceFamilies.push('iPad');
-  }
-  if (declaredDeviceFamilies.length === 0) {
-    declaredDeviceFamilies.push('iPhone');
   }
 
   // Build SDK Metadata
@@ -105,9 +103,6 @@ export function inspectIpaData(archiveData: IpaArchiveData): IosMetadata {
     if (macho.isMachO && macho.architectures.length > 0) {
       architectures = macho.architectures;
     }
-  }
-  if (architectures.length === 0) {
-    architectures = ['arm64']; // Standard default for iOS 64-bit devices
   }
 
   // Purpose strings: Look for all keys matching NS*UsageDescription

@@ -20,6 +20,7 @@ export interface IosSigningInfo {
   teamId?: string;
   provisioningProfilePresent: boolean;
   provisioningProfileType?: 'development' | 'ad-hoc' | 'enterprise' | 'app-store' | 'unknown';
+  provisioningProfileExpiresAt?: string;
   entitlements?: Record<string, unknown>;
   codesignCheckOutcome: 'pass' | 'fail' | 'not-checked';
   limitations: string[];

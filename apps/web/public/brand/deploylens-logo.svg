@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="0 0 128 128" role="img" aria-labelledby="title desc">
+<title id="title">DeployLens</title>
+<desc id="desc">A shield with a check above the gray DeployLens name on a soft green gradient.</desc>
+<defs><linearGradient id="sage" x1="0" y1="0" x2="1" y2="1"><stop stop-color="#e0f2d6"/><stop offset=".48" stop-color="#b8d8ab"/><stop offset="1" stop-color="#82b28b"/></linearGradient></defs>
+<rect width="128" height="128" rx="26" fill="url(#sage)"/>
+<rect x=".5" y=".5" width="127" height="127" rx="25.5" fill="none" stroke="#476e4e" stroke-opacity=".16"/>
+<path d="M64 17 92 29v23c0 19-16 31-28 37-12-6-28-18-28-37V29l28-12Z" fill="#203e2b" fill-opacity=".06" stroke="#203e2b" stroke-width="4" stroke-linejoin="round"/>
+<path d="m50 51 10 10 19-23" fill="none" stroke="#203e2b" stroke-width="5" stroke-linecap="round" stroke-linejoin="round"/>
+<text x="64" y="112" text-anchor="middle" font-family="Arial, Helvetica, sans-serif" font-size="17" font-weight="500" letter-spacing="-.35" fill="#46524b">DeployLens</text>
+</svg>

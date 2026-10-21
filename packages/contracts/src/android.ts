@@ -13,6 +13,7 @@ export interface AndroidSigningInfo {
   schemeV3: boolean;
   schemeV4: boolean;
   signingVerified: boolean;
+  verificationOutcome?: 'pass' | 'fail' | 'not-checked';
   isBundleSigning: boolean;
   signers: CertificateMetadata[];
   storeCertificateMatchVerified: boolean; // false unless expected store certificate is provided
@@ -26,6 +27,8 @@ export interface NativeLibraryInfo {
   fileSizeBytes: number;
   is16KbAligned: boolean | null;
   loadAlignmentBytes?: number;
+  loadSegmentCount?: number;
+  inspectionError?: string;
 }
 
 export interface NativeLibrarySummary {
@@ -35,6 +38,8 @@ export interface NativeLibrarySummary {
   allLibraries16KbAligned: boolean | null;
   packagingAlignmentOk: boolean | null;
   alignmentReport: string;
+  bundlePageAlignment?: '4kb' | '16kb' | '64kb' | 'unspecified' | 'not-checked';
+  bundleUncompressNativeLibraries?: boolean | null;
 }
 
 export interface ComponentExposure {
@@ -61,6 +66,8 @@ export interface AndroidMetadata {
   platform: 'android';
   packageId: string;
   appLabel?: string;
+  appLabelSource?: 'manifest' | 'resources' | 'unresolved';
+  profiling?: { profileableByShell: boolean | null; runtimePerformed: false };
   versionName: string;
   versionCode: number;
   minSdkVersion: number | null;

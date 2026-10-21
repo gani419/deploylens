@@ -1,4 +1,4 @@
-import { contextBridge, ipcRenderer } from 'electron';
+import { contextBridge, ipcRenderer, webUtils } from 'electron';
 import type {
   ScanRequest,
   ScanEvent,
@@ -9,6 +9,7 @@ import type {
 
 export interface DeployLensApi {
   selectFile: () => Promise<ArtifactIdentity | null>;
+  getPathForFile: (file: File) => string;
   detectCapabilities: () => Promise<CapabilityReport>;
   inspectArtifact: (request: ScanRequest) => Promise<ScanSummary>;
   cancelScan: (scanId: string) => Promise<void>;
@@ -18,6 +19,7 @@ export interface DeployLensApi {
 }
 
 const api: DeployLensApi = {
+  getPathForFile: (file: File) => webUtils.getPathForFile(file),
   selectFile: () => ipcRenderer.invoke('deploylens:select-file'),
   detectCapabilities: () => ipcRenderer.invoke('deploylens:detect-capabilities'),
   inspectArtifact: (request: ScanRequest) => ipcRenderer.invoke('deploylens:inspect-artifact', request),

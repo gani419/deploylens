@@ -1,4 +1,5 @@
 import type { Platform, Severity, CheckOutcome, Finding } from '@deploylens/contracts';
+import { explainFinding } from './guidance.js';
 
 export type RuleCategory =
   | 'artifact-integrity'
@@ -68,5 +69,6 @@ export function createFindingFromRule(
     effectiveDates: rule.effectiveDates,
     isSuspectedHeuristic: result.isSuspectedHeuristic,
     applicabilityNote: result.applicabilityNote,
+    guidance: explainFinding(rule.id, result.outcome, rule.remediation),
   };
 }

@@ -30,6 +30,7 @@ export const ScreenSelect: React.FC<ScreenSelectProps> = ({
         setSelectedArtifact(artifact);
         return;
       }
+      if (window.deployLens) return;
     } catch {
       // Fall through to browser file input
     }
@@ -81,7 +82,7 @@ export const ScreenSelect: React.FC<ScreenSelectProps> = ({
 
     if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
       const file = e.dataTransfer.files[0]!;
-      const filePath = (file as any).path || file.name;
+      const filePath = window.deployLens?.getPathForFile(file) || file.name;
       const ext = file.name.split('.').pop()?.toLowerCase();
 
       let platform: ArtifactIdentity['platform'] = 'android';

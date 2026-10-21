@@ -1,33 +1,22 @@
-# Future Roadmap & Extensibility
+# Product direction
 
-DeployLens is built with modular package boundaries to support seamless evolution toward IDE integrations and local physical device automation without rewriting inspection logic.
+## Primary milestone: website alpha
 
-## Phase 1 (Completed Delivery)
-- Local shared inspection engine (`@deploylens/core`, `@deploylens/rules`, `@deploylens/android`, `@deploylens/ios`).
-- CLI tool (`deploylens doctor` & `deploylens scan`).
-- Electron desktop interface with drag-and-drop, live stage progression, categorized findings, and offline store guidance.
-- Pure local offline execution, zero telemetry, zero database persistence.
+- Upload-first React website with a Node inspection service, streamed progress, findings and JSON report download.
+- Ephemeral uploads and results; no database or upload history.
+- Shared engine with evidence-based signing outcomes and versioned policy snapshots.
+- Current gate: validate real release APK/AAB/IPA samples, execute the macOS signing matrix, load-test maximum-sized uploads, and configure a supported host with TLS and abuse controls.
 
----
+## Next: integrations and distribution
 
-## Phase 2: VS Code & Cursor IDE Extension
-The shared engine (`@deploylens/core` and `@deploylens/contracts`) is decoupled from both Electron and the CLI. This allows straightforward integration into a VS Code extension:
-- **Direct Workspace File Inspection**: Automatically detect output APK/AAB builds in `build/outputs/apk/release/` or Xcode IPA export directories.
-- **Diagnostics & Problem Panel**: Render findings as VS Code diagnostics mapped directly to lines in `AndroidManifest.xml` or `Info.plist`.
-- **Custom Editor / Webview Panel**: Reuse `@deploylens/ui` components inside a VS Code Webview panel for side-by-side inspection.
+- VS Code extension: wrap shared engine/contracts in an extension host; render findings in a webview or diagnostics panel.
+- Desktop: preserve working Electron bridge; add OS installer packaging, signing and macOS notarization when desktop becomes a release target.
+- Mobile: provide an upload/report client backed by the same service. Native on-device scanning needs separate platform/tooling work.
+- Hosted macOS workers: route iOS cryptographic checks to an appropriate host rather than pretending Linux can run Apple tools.
+- Optional database/history: introduce explicit retention and deletion controls. Temporary upload directories are not a history store.
 
----
+## Later: runtime checks
 
-## Phase 3: Local Device Automation & Runtime Profiling
-Architectural adapter interfaces (`DeviceRunnerAdapter`) are pre-designed for future physical device testing:
-- **Local ADB Device Bridge**: Query connected physical devices or Android emulators via ADB without cloud services.
-- **Installation & Launch Verification**: Validate `adb install -r <apk>` succeeds and detects immediate launch crashes (e.g. 16 KB page-size kernel crashes, missing shared libraries, missing permissions).
-- **iOS Device Bridge (macOS)**: Connect to physical test devices via `xcrun devicectl` to verify provisioning profile installation and launch viability.
-- **Layout Screenshots**: Capture automated screenshots across phone, tablet, and foldable configurations for store asset preparation.
+Device/emulator installation, startup/crash detection, representative screen checks, performance and payment flows remain future work. The present engine is a static archive inspector.
 
----
-
-## Architectural Principles Preserved
-- All processing remains 100% on the developer's workstation.
-- Zero credential requirements or telemetry.
-- Private signing keys are never ingested or requested.
+No private signing keys are requested for scans. Disposable keys used by regression tests are test-only fixtures generated in temporary directories.

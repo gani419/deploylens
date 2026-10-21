@@ -1,155 +1,97 @@
 # DeployLens
 
-> **Inspect your app. Prepare your release.**
+Inspect your app. Prepare your release.
 
-DeployLens is a fully local mobile app build inspection tool. A developer selects an Android APK/AAB or an iOS IPA, and DeployLens inspects the artifact step by step, validates platform configurations, checks store readiness, and generates offline Google Play and Apple App Store preparation guidance.
+DeployLens is a website-first mobile build inspection tool. Upload an Android APK/AAB or iOS IPA on the home page to inspect release configuration, signatures, SDK requirements, native libraries and privacy declarations. Results show evidence, remediation, checks that could not run, and store preparation guidance.
 
----
+**Status: internal alpha.** Static inspection cannot certify production readiness or guarantee store approval. The scanner does not install or launch the uploaded app.
 
-## Key Highlights
+## Run the website
 
-- **100% Local Execution**: All build inspection happens locally on your workstation.
-- **Zero Telemetry or Cloud APIs**: No login, accounts, remote backend, analytics, telemetry, or external AI APIs.
-- **Strict Ephemeral State**: Scan results and app metadata are kept purely in memory. No SQLite, IndexedDB, or local file logging.
-- **Archive Security**: Built-in safe ZIP reader with path traversal protection (Zip Slip prevention), entry count caps, and bomb ratio checks.
-- **Original Artifact Immutability**: DeployLens never modifies, re-signs, or alters the input binary.
-- **Shared Architecture**: CLI and Electron desktop interface share the exact same inspection engine (`@deploylens/core`).
+Requires Node.js 22+ and pnpm 12.9.1.
 
----
-
-## Monorepo Architecture
-
-```
-DeployLens/
-├── apps/
-│   ├── cli/            # Commander CLI tool (`deploylens doctor`, `deploylens scan`)
-│   └── desktop/        # Electron desktop interface with React 19 and Vite
-├── packages/
-│   ├── contracts/      # Typed metadata, findings, stages, capabilities, events
-│   ├── core/           # Scan lifecycle, safe ZIP reader, workspace cleanup, engine
-│   ├── android/        # AXML parser, ELF segment inspector, APK/AAB signing
-│   ├── ios/            # Plist parser, Mach-O parser, privacy manifest, macOS adapter
-│   ├── rules/          # Versioned technical and policy rules with official sources
-│   ├── store-guidance/ # Local deterministic templates and store release checklist
-│   └── ui/             # Reusable presentation components (React 19, CSS variables)
-├── fixtures/           # Controlled test fixtures (.apk, .aab, .ipa, corrupt, traversal)
-└── docs/               # Architecture, tool matrix, compatibility, and roadmap
+```sh
+pnpm install --frozen-lockfile
+pnpm web:build
+pnpm web
 ```
 
----
+Open http://127.0.0.1:3000. User-facing documentation is available at `/documentation`. Reports show the extracted app display name, detected platform/format, version, identifier and original upload separately. Android diagnostics include per-library ELF alignment and AAB native packaging settings; no live Android Profiler session is run. The Node server serves both the website and upload API. `PORT` and `HOST` configure the listener. For UI development, keep the API running and run `pnpm web:dev` in a second terminal.
 
-## Installation & Setup
+A browser uploads the actual file bytes. This is not a file-path preview. Files are temporarily written to a private server workspace, scanned in a separate process, and deleted after success, failure, timeout or cancellation. No database, upload history, authentication, analytics, or automatic saved reports are implemented. A user can explicitly download their JSON report. Results stay in browser memory until the page is refreshed or another file is selected.
 
-### Prerequisites
-- **Node.js**: `v22.x` LTS or `v24.x` LTS
-- **pnpm**: `v10.x` or `v12.x` (Corepack or `npm install -g pnpm`)
-- **Android SDK** (optional): `apksigner`, `apkanalyzer`, `zipalign`
-- **macOS / Xcode CLI** (optional for iOS cryptographic codesign verification)
+See [website deployment and retention](docs/WEB_DEPLOYMENT.md) before hosting.
 
-### Setup
-```bash
-# Clone the repository
-git clone https://github.com/gani419/deploylens.git
-cd deploylens
+## Signing and policy checks
 
-# Install dependencies
-pnpm install
+- APK signatures are cryptographically verified with Android SDK `apksigner`. Signature-block presence alone never passes verification. Windows batch wrappers are launched through their Java JAR without a shell.
+- AAB JAR signatures are verified with JDK `jarsigner`. Unsigned entries and tampered archives fail. Actual certificate metadata is extracted with `keytool`.
+- iOS nested code is extracted into a temporary workspace on macOS and checked with `codesign --verify --deep --strict --all-architectures` with an Apple trust anchor. Displaying a certificate alone is insufficient. Provisioning profile metadata is checked for development distribution and expiration; complete entitlement/profile eligibility still requires Xcode/App Store Connect validation.
+- Missing verification tools produce **not checked**, not passed. Unsupported or unreadable manifests never receive fabricated app identities, SDK levels, or architectures.
+- Policy snapshot reviewed **October 21, 2026**: Google Play new/update target API 36 for phone/tablet, 35 for Wear OS/Automotive, 34 for TV/XR; iOS/iPadOS SDK 26+ for App Store Connect uploads. Category-specific extensions and account standing require console verification.
 
-# Build all packages and applications
+Official sources: [Google Play target API](https://support.google.com/googleplay/android-developer/answer/11926878), [Apple SDK minimums](https://developer.apple.com/news/?id=ueeok6yw), [Apple signature verification](https://developer.apple.com/library/archive/technotes/tn2206/).
+
+## Architecture
+
+TypeScript/pnpm monorepo with a Node inspection engine. React 19 and Vite power the web and desktop interfaces. Electron provides the local desktop bridge. Commander powers the CLI. Vitest and Playwright cover regression and browser behavior.
+
+- `apps/web`: responsive upload-first website, Node HTTP upload service, isolated scan worker.
+- `apps/cli`: local `doctor` and `scan` commands.
+- `apps/desktop`: Electron interface with a sandboxed CommonJS preload bridge.
+- `packages/core`: scan lifecycle, bounded ZIP parsing, cleanup, assessments.
+- `packages/android`, `packages/ios`: archive and platform inspection.
+- `packages/rules`: versioned checks with official references.
+- `packages/contracts`, `packages/ui`, `packages/store-guidance`: shared types, desktop UI primitives, and deterministic store guidance.
+
+Keep platform logic in shared packages. Future VS Code, desktop and mobile clients can wrap the same scan contract. A Linux server can inspect iOS metadata, but cryptographic iOS verification needs a macOS host.
+
+## Local CLI and desktop
+
+```sh
 pnpm build
-
-# Run test suite
-pnpm test
-```
-
----
-
-## CLI Usage
-
-### Check Local Tool Capabilities
-```bash
-# Human readable output
-pnpm cli doctor
-
-# Clean JSON output for automated scripting
 pnpm cli doctor --format json
-```
-
-### Inspect an Artifact
-```bash
-# Human readable live progression and assessment
-pnpm cli scan fixtures/android/valid-app.apk
-
-# With optional app details to customize store listing templates
-pnpm cli scan fixtures/android/test-app.aab --purpose "Personal finance tracker" --users "Students"
-
-# Clean JSON output (no progress text mixed into stdout)
-pnpm cli scan fixtures/android/valid-app.apk --format json
-```
-
-### CLI Exit Codes
-- `0`: Scan passed all available checks (`PASSED AVAILABLE CHECKS`) or doctor completed successfully.
-- `1`: Invalid input arguments, missing file, or corrupt archive header.
-- `2`: Confirmed submission blockers identified (`ACTION REQUIRED`).
-- `3`: Unresolved review flags or host tool coverage gaps (`REVIEW REQUIRED`).
-- `4`: Critical inspection failure or stage exception (`INCOMPLETE`).
-
----
-
-## Desktop Application
-
-Run the Electron application:
-```bash
-# Start Vite development server
+pnpm cli scan fixtures/android/test-app.aab --format json
 pnpm desktop
-
-# Or run production built desktop bundle
-pnpm desktop:build
-pnpm --filter @deploylens/desktop start
 ```
 
-### Desktop Flow
-1. **Screen 1 (Select Build)**: Drag-and-drop or browse for `.apk`, `.aab`, or `.ipa`. Inspects file metadata, displays local tool capabilities, and accepts optional in-memory app details.
-2. **Screen 2 (Live Validation)**: Real-time stage progression with indicators and expandable findings rows.
-3. **Screen 3 (Final Assessment)**: Evidence-based readiness status (`ACTION REQUIRED`, `REVIEW REQUIRED`, `PASSED AVAILABLE CHECKS`, `INCOMPLETE`), blocker and risk counts, coverage ratio, and mandatory unverified areas.
-4. **Screen 4 (Store Preparation)**: Local deterministic listing title/description generator with validated character counters, and release checklist.
+CLI exit statuses: 0 passed available checks; 2 action required; 3 review required; 4 incomplete/error. A missing file returns 1. Fixtures are synthetic regression archives, not installable release samples, and placeholder signatures must fail verification.
 
----
+## Verification
 
-## Supported Inspection Stages
+```sh
+pnpm build
+pnpm test
+pnpm typecheck
+pnpm test:e2e
+```
 
-### Android (9 Stages)
-1. **Validate artifact**: Identity, archive integrity, required manifest entries.
-2. **Read app information**: Package ID, app label, version code, version name.
-3. **Read OS and device declarations**: `minSdkVersion`, `targetSdkVersion` (API 34/35 Google Play policy), `maxSdkVersion` audit (reports "Not declared" if absent).
-4. **Inspect release configuration**: `android:debuggable` and `android:testOnly` (distinguishing explicit values from resolved defaults).
-5. **Inspect signing**: APK Signature Schemes v1/v2/v3/v4; original AAB bundle upload key verification.
-6. **Inspect native libraries**: ABI inventory, 64-bit architecture coverage, ELF 16 KB page alignment for Android 15, and 4-byte zip alignment.
-7. **Review permissions and security configuration**: High-risk/restricted permissions requiring Google Play policy declaration, cleartext HTTP traffic, and exported components.
-8. **Review packaging**: Archive breakdown (DEX, native libs, assets, resources) and large file analysis.
-9. **Generate store guidance and assessment**: Category inference and submission checklist.
+Browser tests use installed Google Chrome and verify upload, results, report download, corrupt input, mobile layout, and the Electron bridge. The real JDK signing regression uses disposable test keys and skips if a JDK is unavailable. Windows timeout/cancellation tests must be allowed to terminate their own child process trees.
 
-### iOS (8 Stages)
-1. **Validate IPA archive and Payload structure**: Standard `Payload/<App>.app` hierarchy.
-2. **Read main app Info.plist**: Binary and XML property list parsing.
-3. **Extract identity and versioning**: `CFBundleIdentifier`, `CFBundleShortVersionString`, `CFBundleVersion`, `MinimumOSVersion`, `UIDeviceFamily`.
-4. **Inspect embedded frameworks and architectures**: Mach-O parsing (arm64, armv7, universal fat binaries), frameworks, and app extensions.
-5. **Inspect purpose strings and transport security**: Required privacy usage strings (`NSCameraUsageDescription`, etc.) and ATS configuration.
-6. **Parse privacy manifests**: Structural audit of `PrivacyInfo.xcprivacy` and Required Reason APIs.
-7. **Inspect entitlements and signing**: `embedded.mobileprovision` profile type, entitlements, and macOS `codesign` validation.
-8. **Generate store guidance and assessment**: App Store Connect metadata limits, keywords, and review notes checklist.
+No installer artifacts or public deployment are included. Desktop build and runtime are tested separately from OS installer signing/notarization.
 
----
+## Web workspace and report presentation
 
-## Documentation
+The web app uses a full-width workspace, a persistent desktop sidebar and a keyboard-accessible mobile drawer. Report sections include Release overview, Findings & fixes, All checks, Build details, Android/iOS diagnostics, Store preparation and Manual verification. Findings explain the result, evidence, impact, next steps, verification and scope; the structured guidance is also included in exported JSON.
 
-- [Tool & Dependency Compatibility Guide](docs/COMPATIBILITY.md)
-- [Platform Capability Matrix](docs/CAPABILITY_MATRIX.md)
-- [Rule Authoring Guide](docs/RULE_AUTHORING.md)
-- [Future Roadmap (Device Automation & IDE Integration)](docs/ROADMAP.md)
+Appearance uses sage-green light and dark themes, with locally served Manrope headings and DM Sans body/subtitle text. Only `deploylens-theme` is saved in browser storage. Reports and review markers remain in memory. Theme colors, fonts and shared tokens live in `apps/web/src/styles/variables.css`. Layout styles are split into `styles.css`, `workspace.css`, `home.css`, `report.css` and `documentation.css`; UI components contain no inline visual styles. Components and the upload lifecycle hook live separately under `components/` and `hooks/`.
 
----
+### Sharing and optional build comparison
 
-## Official Disclaimer
+After inspection, **Share report & build** provides an editable subject/message, offline HTML report (printable to PDF), optional original-build download, native file sharing where supported, Gmail/email/WhatsApp text composers, and copy/paste for Google Chat. A downloadable `.eml` includes the HTML report as a genuine attachment for compatible mail clients; the original archive must be attached separately. No email is sent automatically, cloud storage is not used, and there are no public report links. External apps may reject build files or attachments; direct compose links cannot attach local files.
 
-> **This tool can make mistakes or miss issues. Results are guidance and do not guarantee production readiness or approval by Google Play or the App Store. Always verify findings manually and test your app before submitting it.**
+**Compare builds** optionally inspects a previous archive of the same app while retaining the current report. It distinguishes confirmed fixes, newly reported issues, unresolved issues and unconfirmed fixes, with version/size/SDK/permission changes. A missing or skipped finding never counts as fixed. Single-build inspection remains the default. Drafts, selected original files, and both results stay in page memory until reload or a new inspection. Public product name/version are defined in `apps/web/src/product.ts` and shown in the footer.
+
+### Opt-in local APK installation
+
+Install Android SDK Platform-Tools and set `ANDROID_HOME` / `ANDROID_SDK_ROOT` or add `adb` to PATH. In PowerShell, enable local device access before starting the website:
+
+```powershell
+$env:DEPLOYLENS_LOCAL_DEVICES = '1'
+$env:HOST = '127.0.0.1'
+pnpm web
+```
+
+Open the local website (normally `http://127.0.0.1:3000`), inspect an APK, then use **Install on Android**. Authorize USB debugging or start an emulator, refresh devices, select a target, and confirm installation. Updating an existing app is an explicit opt-in; no uninstall is performed. Temporary installation copies are hash-checked against the inspected archive and removed afterward. This feature is disabled by default and restricted to local server connections and loopback hosts. Do not expose an enabled local device server through a reverse proxy or tunnel.
+
+Hosted websites cannot access a visitor's local ADB devices. AAB conversion/APK-set installation and IPA installation are not included. Installation does not launch the app, run runtime tests or change the assessment. The separate Electron interface does not yet expose this website installation feature.

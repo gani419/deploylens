@@ -2,53 +2,27 @@ import type { AndroidMetadata } from '@deploylens/contracts';
 import type { Rule } from '../types.js';
 
 export const androidTargetSdkRule: Rule<AndroidMetadata> = {
-  id: 'RULE-AND-SDK-001',
-  revision: '2026.1',
-  platform: 'android',
-  category: 'sdk-compatibility',
-  severity: 'blocker',
-  name: 'Target SDK Level Compliance',
-  description: 'Google Play requires new apps and app updates to target a recent Android API level (API 34+ for updates, API 35 recommended).',
-  whyItMatters: 'Google Play rejects APK/AAB submissions that target obsolete API levels to ensure users benefit from modern security, privacy, and battery enhancements.',
-  remediation: 'Update targetSdkVersion in build.gradle to API 34 (Android 14) or API 35 (Android 15), test compatibility, and rebuild.',
-  officialReferenceUrl: 'https://developer.android.com/google/play/requirements/target-sdk',
-  sourceReviewDate: '2026-01-10',
-  effectiveDates: 'August 31, 2024 onwards',
-  applicabilityDescription: 'Applies to all Android applications submitted to Google Play.',
+  id: 'RULE-AND-SDK-001', revision: '2026.10', platform: 'android',
+  category: 'sdk-compatibility', severity: 'blocker', name: 'Target SDK Level Compliance',
+  description: 'Checks Google Play new app/update target API requirements effective August 31, 2026.',
+  whyItMatters: 'New submissions must satisfy the current target API requirement for their device category.',
+  remediation: 'Target API 36 for phone/tablet, 35 for Wear OS/Automotive, or 34 for TV/XR. Check Play Console for account-specific extensions.',
+  officialReferenceUrl: 'https://support.google.com/googleplay/android-developer/answer/11926878',
+  sourceReviewDate: '2026-10-21', effectiveDates: '2026-08-31',
+  applicabilityDescription: 'New apps and updates; existing-app availability and granted extensions require Play Console review.',
   requiredCapabilities: [],
   evaluate: ({ metadata }) => {
-    const targetSdk = metadata.targetSdkVersion;
-    if (targetSdk === null) {
-      return {
-        ruleId: 'RULE-AND-SDK-001',
-        outcome: 'fail',
-        evidence: 'targetSdkVersion was not specified in the Android manifest.',
-        affectedFileOrConfig: 'AndroidManifest.xml (<uses-sdk>)',
-      };
-    }
-
-    if (targetSdk >= 35) {
-      return {
-        ruleId: 'RULE-AND-SDK-001',
-        outcome: 'pass',
-        evidence: `targetSdkVersion is ${targetSdk} (Android 15+), exceeding current Google Play requirements. Note: targetSdkVersion declares API compatibility level, not the maximum supported Android version.`,
-        affectedFileOrConfig: 'AndroidManifest.xml (<uses-sdk>)',
-      };
-    }
-
-    if (targetSdk === 34) {
-      return {
-        ruleId: 'RULE-AND-SDK-001',
-        outcome: 'pass',
-        evidence: `targetSdkVersion is 34 (Android 14), satisfying current minimum Google Play target API policy. Note: targetSdkVersion declares API compatibility level, not the maximum supported Android version.`,
-        affectedFileOrConfig: 'AndroidManifest.xml (<uses-sdk>)',
-      };
-    }
-
+    const features = metadata.hardwareFeatures?.filter(f => f.required).map(f => f.name) ?? [];
+    const category = features.includes('android.hardware.type.watch') ? 'Wear OS'
+      : features.includes('android.hardware.type.automotive') ? 'Automotive'
+      : features.includes('android.software.leanback') || features.includes('android.hardware.type.television') ? 'TV'
+      : features.some(f => f.startsWith('android.software.xr.') || f === 'android.hardware.type.xr') ? 'XR' : 'phone/tablet';
+    const minimum = category === 'TV' || category === 'XR' ? 34 : category === 'phone/tablet' ? 36 : 35;
+    const target = metadata.targetSdkVersion;
     return {
       ruleId: 'RULE-AND-SDK-001',
-      outcome: 'fail',
-      evidence: `targetSdkVersion is ${targetSdk}. Google Play requires targetSdkVersion >= 34 for new app releases and updates.`,
+      outcome: target !== null && Number.isInteger(target) && target >= minimum ? 'pass' : 'fail',
+      evidence: `targetSdkVersion: ${target ?? 'not declared'}. ${category} new apps/updates require API ${minimum}+ from August 31, 2026 (policy reviewed October 21, 2026). Device category inferred from required manifest features. Any granted extension must be confirmed in Play Console. Note: targetSdkVersion declares API compatibility level, not the maximum supported Android version.`,
       affectedFileOrConfig: 'AndroidManifest.xml (<uses-sdk>)',
     };
   },

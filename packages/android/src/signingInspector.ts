@@ -4,7 +4,8 @@ import type { AndroidSigningInfo, CertificateMetadata } from '@deploylens/contra
 const APK_SIG_BLOCK_MAGIC = Buffer.from('APK Sig Block 42', 'ascii');
 const ID_APK_SIGNATURE_SCHEME_V2 = 0x7109871a;
 const ID_APK_SIGNATURE_SCHEME_V3 = 0xf05368c0;
-const ID_APK_SIGNATURE_SCHEME_V4 = 0x1b93f612;
+// APK v4 signatures are detached .idsig files, not signing-block entries.
+const ID_APK_SIGNATURE_SCHEME_V31 = 0x1b93ad61;
 
 export interface RawSigningBlockInspection {
   hasSigningBlock: boolean;
@@ -69,11 +70,10 @@ export function inspectApkSigningBlock(fileBuffer: Buffer): RawSigningBlockInspe
     if (pairId === ID_APK_SIGNATURE_SCHEME_V2) {
       result.schemeV2 = true;
       extractCertificatesFromSchemePayload(fileBuffer.subarray(dataStart, dataEnd), result.certificates);
-    } else if (pairId === ID_APK_SIGNATURE_SCHEME_V3) {
+    } else if (pairId === ID_APK_SIGNATURE_SCHEME_V3 || pairId === ID_APK_SIGNATURE_SCHEME_V31) {
       result.schemeV3 = true;
       extractCertificatesFromSchemePayload(fileBuffer.subarray(dataStart, dataEnd), result.certificates);
-    } else if (pairId === ID_APK_SIGNATURE_SCHEME_V4) {
-      result.schemeV4 = true;
+
     }
 
     current += 8 + pairLength;
@@ -135,25 +135,23 @@ function extractCertificatesFromSchemePayload(payload: Buffer, certList: Buffer[
 }
 
 export function buildCertificateMetadata(certDer: Buffer): CertificateMetadata {
-  const sha256 = crypto.createHash('sha256').update(certDer).digest('hex').toUpperCase().match(/.{2}/g)?.join(':') ?? '';
-
-  let subject = 'Android Signer';
-  let issuer = 'Android Signer';
-
-  // Basic ASN.1 / X.509 string scan
-  const derString = certDer.toString('binary');
-  const cnMatch = /CN=([^\0,]+)/.exec(derString);
-  if (cnMatch) {
-    subject = `CN=${cnMatch[1]}`;
-    issuer = subject;
-  }
-
+  // Hash an actual DER certificate, never a PKCS#7 container or signature file.
+  const cert = new crypto.X509Certificate(certDer);
   return {
-    subject,
-    issuer,
-    fingerprintSha256: sha256,
+    subject: cert.subject,
+    issuer: cert.issuer,
+    fingerprintSha256: cert.fingerprint256,
+    validFrom: cert.validFrom,
+    validUntil: cert.validTo,
+    serialNumber: cert.serialNumber,
   };
 }
+
+function tryCertificate(certDer: Buffer): CertificateMetadata[] {
+  try { return [buildCertificateMetadata(certDer)]; } catch { return []; }
+}
+
+
 
 export function synthesizeAndroidSigningInfo(options: {
   isAab: boolean;
@@ -167,20 +165,12 @@ export function synthesizeAndroidSigningInfo(options: {
 
   if (isAab) {
     // For AAB: Uses JAR signature scheme in META-INF
-    const verified = hasMetaInfSignature;
+    const verified = false;
     if (metaInfCert) {
-      signers.push(buildCertificateMetadata(metaInfCert));
-    } else if (hasMetaInfSignature) {
-      signers.push({
-        subject: 'AAB Upload Signer',
-        issuer: 'AAB Upload Signer',
-        fingerprintSha256: 'Present in META-INF',
-      });
+      signers.push(...tryCertificate(metaInfCert));
     }
 
-    if (!verified) {
-      warnings.push('AAB does not contain a valid META-INF signature file (.RSA or .EC)');
-    }
+    warnings.push(hasMetaInfSignature ? 'Signature files present; cryptographic JAR verification is required.' : 'No JAR signature files present.');
 
     return {
       schemeV1: hasMetaInfSignature,
@@ -188,6 +178,7 @@ export function synthesizeAndroidSigningInfo(options: {
       schemeV3: false,
       schemeV4: false,
       signingVerified: verified,
+      verificationOutcome: hasMetaInfSignature ? 'not-checked' : 'fail',
       isBundleSigning: true,
       signers,
       storeCertificateMatchVerified: false,
@@ -197,19 +188,18 @@ export function synthesizeAndroidSigningInfo(options: {
 
   // APK inspection
   for (const cert of apkSigBlock.certificates) {
-    signers.push(buildCertificateMetadata(cert));
+    signers.push(...tryCertificate(cert));
   }
 
   if (signers.length === 0 && metaInfCert) {
-    signers.push(buildCertificateMetadata(metaInfCert));
+    signers.push(...tryCertificate(metaInfCert));
   }
 
   const hasV2orV3 = apkSigBlock.schemeV2 || apkSigBlock.schemeV3;
-  const verified = hasV2orV3 || hasMetaInfSignature;
+  const signaturePresent = hasV2orV3 || hasMetaInfSignature;
+  const verified = false;
 
-  if (!verified) {
-    warnings.push('No valid APK v1 or v2/v3 signatures found');
-  }
+  warnings.push(signaturePresent ? 'Signing structures present; apksigner verification is required.' : 'No APK signing structures found.');
 
   return {
     schemeV1: hasMetaInfSignature,
@@ -217,6 +207,7 @@ export function synthesizeAndroidSigningInfo(options: {
     schemeV3: apkSigBlock.schemeV3,
     schemeV4: apkSigBlock.schemeV4,
     signingVerified: verified,
+    verificationOutcome: signaturePresent ? 'not-checked' : 'fail',
     isBundleSigning: false,
     signers,
     storeCertificateMatchVerified: false,

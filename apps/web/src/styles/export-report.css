@@ -1,0 +1,11 @@
+/* Embedded into downloaded HTML reports so they work offline. */
+:root { color-scheme: light; font-family: system-ui, sans-serif; line-height: 1.65; color: #26362c; background: #f3f6f0; }
+body { max-width: 1000px; margin: 32px auto; padding: 32px; background: #fff; border: 1px solid #dde6d8; border-radius: 14px; overflow-wrap: anywhere; }
+h1, h2, h3, h4 { line-height: 1.35; }
+h1 { font-size: 30px; }
+h2 { color: #365b3e; margin-top: 36px; }
+article { padding: 16px 20px; border: 1px solid #dde6d8; margin: 16px 0; border-radius: 8px; }
+dt { font-weight: 600; } dd { margin: 0 0 10px; }
+a { color: #365b3e; } footer { border-top: 1px solid #dde6d8; padding-top: 20px; margin-top: 32px; }
+@media (max-width: 600px) { body { margin: 0; padding: 20px; border: 0; } article { padding: 12px; } }
+@media print { :root { background: white; } body { margin: 0; max-width: none; padding: 0; border: 0; } h2,h3,h4 { break-after: avoid; } }

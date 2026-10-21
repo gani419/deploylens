@@ -47,7 +47,7 @@ export class TemporaryWorkspace {
 
   resolvePath(...subPaths: string[]): string {
     const target = path.resolve(this.dir, ...subPaths);
-    if (!target.startsWith(this.dir)) {
+    if (target !== this.dir && !target.startsWith(this.dir + path.sep)) {
       throw new Error(`Path security violation: resolved path "${target}" is outside workspace "${this.dir}"`);
     }
     return target;

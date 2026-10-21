@@ -26,10 +26,10 @@ export const androidNative64BitRule: Rule<AndroidMetadata> = {
       };
     }
 
-    const has32Bit = abis.some((a) => a === 'armeabi-v7a' || a === 'x86');
-    const has64Bit = metadata.nativeLibraries.has64BitCoverage;
+    const missingPairs = (abis.includes('armeabi-v7a') && !abis.includes('arm64-v8a'))
+      || (abis.includes('x86') && !abis.includes('x86_64'));
 
-    if (has32Bit && !has64Bit) {
+    if (missingPairs) {
       return {
         ruleId: 'RULE-AND-NAT-001',
         outcome: 'fail',
@@ -49,16 +49,17 @@ export const androidNative64BitRule: Rule<AndroidMetadata> = {
 
 export const android16KbPageAlignmentRule: Rule<AndroidMetadata> = {
   id: 'RULE-AND-NAT-002',
-  revision: '2026.1',
+  revision: '2026.10',
   platform: 'android',
   category: 'native-binaries',
-  severity: 'risk',
+  severity: 'blocker',
   name: '16 KB ELF Page Alignment Inspection',
   description: 'Checks whether ELF load segments in native libraries (.so) are aligned to at least 16 KB boundaries for Android 15 compatibility.',
   whyItMatters: 'Android 15 introduces support for 16 KB memory page sizes. Apps containing 4 KB-only aligned native libraries will crash when loaded on 16 KB page-size kernel configurations.',
   remediation: 'Compile native libraries with -Wl,-z,max-page-size=16384 using Android NDK r27 or newer, and ensure packaging preserves page alignment.',
   officialReferenceUrl: 'https://developer.android.com/guide/practices/page-sizes',
-  sourceReviewDate: '2026-01-10',
+  sourceReviewDate: '2026-10-21',
+  effectiveDates: '2025-11-01; account-specific extensions require Play Console verification',
   applicabilityDescription: 'Applies to Android builds containing native code.',
   requiredCapabilities: [],
   evaluate: ({ metadata }) => {
@@ -72,14 +73,14 @@ export const android16KbPageAlignmentRule: Rule<AndroidMetadata> = {
       };
     }
 
-    const unalignedLibs = libs.filter((l) => l.is16KbAligned === false);
+    const unalignedLibs = libs.filter((l) => ['arm64-v8a', 'x86_64'].includes(l.abi) && l.is16KbAligned === false);
     const unknownLibs = libs.filter((l) => l.is16KbAligned === null);
 
     if (unalignedLibs.length > 0) {
       return {
         ruleId: 'RULE-AND-NAT-002',
-        outcome: 'needs-review',
-        evidence: `${unalignedLibs.length} of ${libs.length} native libraries are aligned to 4 KB instead of 16 KB (e.g. ${unalignedLibs.slice(0, 3).map((l) => l.name).join(', ')}). May crash on 16 KB page Android 15 devices.`,
+        outcome: (metadata.targetSdkVersion ?? 0) >= 35 ? 'fail' : 'needs-review',
+        evidence: `${unalignedLibs.length} 64-bit native libraries do not meet 16 KB ELF alignment (e.g. ${unalignedLibs.slice(0, 3).map((l) => l.name).join(', ')}). Google Play requires 16 KB support for submissions targeting API 35+. Confirm any granted extension in Play Console; runtime compatibility also needs device testing.`,
         affectedFileOrConfig: unalignedLibs[0]?.path,
       };
     }
@@ -93,12 +94,34 @@ export const android16KbPageAlignmentRule: Rule<AndroidMetadata> = {
       };
     }
 
+    const relevant = libs.filter(lib => ['arm64-v8a', 'x86_64'].includes(lib.abi));
+    if (!relevant.length) return { ruleId: 'RULE-AND-NAT-002', outcome: 'not-applicable', evidence: 'No recognized 64-bit native libraries to inspect for 16 KB ELF alignment. The separate 64-bit ABI coverage check still applies.' };
+
     return {
       ruleId: 'RULE-AND-NAT-002',
       outcome: 'pass',
-      evidence: `ELF segment alignment checks passed across all ${libs.length} native libraries (load segments aligned to >= 16384 bytes). Note: This confirms binary alignment checks passed; it does not guarantee complete 16 KB runtime compatibility for internal memory allocators or JNI code.`,
+      evidence: `ELF segment alignment checks passed across ${relevant.length} 64-bit native libraries (load segments aligned to >= 16384 bytes). Note: This confirms binary alignment checks passed; it does not guarantee complete 16 KB runtime compatibility for internal memory allocators or JNI code.`,
       affectedFileOrConfig: 'lib/',
     };
+  },
+};
+
+export const androidBundlePageAlignmentRule: Rule<AndroidMetadata> = {
+  id: 'RULE-AND-NAT-004', revision: '2026.10', platform: 'android', category: 'native-binaries', severity: 'risk',
+  name: 'AAB Generated APK Page Alignment',
+  description: 'Inspects BundleConfig.pb for the uncompressed native library page-alignment setting.',
+  whyItMatters: 'Aligned ELF files also require suitable packaging in generated APKs for direct memory mapping on 16 KB devices.',
+  remediation: 'Use current Android Gradle tooling, configure 16 KB native packaging, and verify generated APKs with zipalign -c -P 16 -v 4 and a 16 KB device.',
+  officialReferenceUrl: 'https://developer.android.com/guide/practices/page-sizes', sourceReviewDate: '2026-10-21',
+  applicabilityDescription: 'AAB files with native libraries; this inspects configuration rather than generated APKs.', requiredCapabilities: [],
+  evaluate: ({ metadata }) => {
+    const native = metadata.nativeLibraries;
+    const base = { ruleId: 'RULE-AND-NAT-004', affectedFileOrConfig: 'BundleConfig.pb' };
+    if (!metadata.signing.isBundleSigning || !native.libraries.length) return { ...base, outcome: 'not-applicable', evidence: 'Applies to AABs containing native libraries.' };
+    if (native.bundleUncompressNativeLibraries === false) return { ...base, outcome: 'not-applicable', evidence: 'Uncompressed native library delivery is disabled in BundleConfig.pb. Verify the actual generated APKs; ELF alignment still applies.' };
+    if (native.bundlePageAlignment === '16kb' || native.bundlePageAlignment === '64kb') return { ...base, outcome: 'pass', evidence: `BundleConfig.pb requests ${native.bundlePageAlignment} packaging alignment. This is configuration evidence only; generated APK alignment and runtime compatibility are not verified.` };
+    if (native.bundlePageAlignment === '4kb') return { ...base, outcome: 'needs-review', evidence: 'BundleConfig.pb requests 4 KB packaging alignment. Generated uncompressed native libraries may not be suitable for 16 KB devices; verify generated APKs and update packaging.' };
+    return { ...base, outcome: 'not-checked', evidence: 'Native packaging alignment could not be established from BundleConfig.pb. Inspect generated APKs using bundletool and zipalign.' };
   },
 };
 
@@ -126,11 +149,11 @@ export const androidPackagingAlignmentRule: Rule<AndroidMetadata> = {
       };
     }
 
-    if (!toolCapabilities['zipalign'] && metadata.nativeLibraries.packagingAlignmentOk === null) {
+    if (metadata.nativeLibraries.packagingAlignmentOk === null) {
       return {
         ruleId: 'RULE-AND-NAT-003',
         outcome: 'not-checked',
-        evidence: 'zipalign tool not detected on system. Could not run full zipalign verification.',
+        evidence: `Zip alignment could not be verified (${toolCapabilities['zipalign'] ? 'tool execution unavailable' : 'tool missing'}).`,
         affectedFileOrConfig: 'APK Archive',
       };
     }
@@ -147,7 +170,7 @@ export const androidPackagingAlignmentRule: Rule<AndroidMetadata> = {
     return {
       ruleId: 'RULE-AND-NAT-003',
       outcome: 'pass',
-      evidence: 'APK entries and uncompressed resources are properly zip-aligned (4-byte alignment).',
+      evidence: 'zipalign -c -P 16 -v 4 passed: 4-byte entry and 16 KB uncompressed native library alignment.',
       affectedFileOrConfig: 'APK Archive',
     };
   },

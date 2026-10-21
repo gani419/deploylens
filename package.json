@@ -2,25 +2,30 @@
   "name": "deploylens-monorepo",
   "version": "1.0.0",
   "private": true,
-  "description": "DeployLens - Fully local mobile app build inspection tool",
+  "description": "DeployLens - Mobile build inspection for the web, CLI and desktop",
   "packageManager": "pnpm@12.9.1",
   "engines": {
     "node": ">=22.0.0",
     "pnpm": ">=10.0.0"
   },
-
   "scripts": {
     "build": "pnpm -r --filter \"./packages/*\" run build && pnpm -r --filter \"./apps/*\" run build",
-    "test": "vitest run",
+    "test": "pnpm -r --filter \"./packages/*\" run build && vitest run",
     "test:coverage": "vitest run --coverage",
     "cli": "pnpm --filter @deploylens/cli run start",
     "desktop": "pnpm --filter @deploylens/desktop run dev",
     "desktop:build": "pnpm --filter @deploylens/desktop run build",
-    "lint": "pnpm -r run lint"
+    "lint": "pnpm -r run lint",
+    "web": "pnpm --filter @deploylens/web start",
+    "web:dev": "pnpm --filter @deploylens/web dev",
+    "web:build": "pnpm -r --filter \"./packages/*\" run build && pnpm --filter @deploylens/web build",
+    "typecheck": "pnpm --filter @deploylens/desktop typecheck && pnpm --filter @deploylens/web typecheck",
+    "test:e2e": "playwright test"
   },
   "devDependencies": {
     "@types/node": "22.13.9",
     "typescript": "5.8.2",
-    "vitest": "3.0.7"
+    "vitest": "3.0.7",
+    "@playwright/test": "1.56.1"
   }
 }

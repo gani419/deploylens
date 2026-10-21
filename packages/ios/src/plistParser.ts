@@ -21,7 +21,11 @@ export function parsePlistBuffer(buffer: Buffer): Record<string, unknown> | null
   // XML / Plaintext plist
   try {
     const text = buffer.toString('utf8');
-    const parsed = parse(text);
+    const start = text.indexOf('<plist');
+    const end = text.lastIndexOf('</plist>');
+    if (start === -1 || end < start) return null;
+    // Embedded provisioning profiles are CMS containers around an XML plist.
+    const parsed = parse(text.substring(start, end + 8));
     if (parsed && typeof parsed === 'object') {
       return parsed as Record<string, unknown>;
     }

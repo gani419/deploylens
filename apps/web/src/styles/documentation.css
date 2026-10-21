@@ -1,0 +1,152 @@
+.documentation {
+  width: 100%;
+  min-width: 0;
+}
+.docs-heading {
+  border-bottom: 1px solid var(--line);
+  padding: 5px 0 27px;
+}
+.docs-heading h1 {
+  font-size: 34px;
+  margin: 17px 0 12px;
+}
+.docs-heading > p:last-child {
+  font-size: 15px;
+  line-height: 1.8;
+  margin-bottom: 0;
+}
+.docs-layout {
+  display: grid;
+  grid-template-columns: 180px minmax(0, 1fr);
+  gap: 38px;
+  margin-top: 30px;
+}
+.docs-index {
+  position: sticky;
+  top: 25px;
+  align-self: start;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+.docs-index a {
+  font-size: 13px;
+  color: var(--text-muted);
+  line-height: 1.8;
+}
+.docs-index a:hover {
+  color: var(--primary);
+}
+.docs-content {
+  min-width: 0;
+}
+.docs-content section {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  padding: 28px;
+  margin-bottom: 22px;
+  scroll-margin-top: 25px;
+}
+.docs-content h2 {
+  font-size: 22px;
+  margin-bottom: 20px;
+}
+.docs-content p,
+.docs-content li,
+.docs-content dd {
+  font-size: 14px;
+  line-height: 1.95;
+  color: var(--text-secondary);
+}
+.docs-content p:last-child {
+  margin-bottom: 0;
+}
+.docs-content strong {
+  font-weight: 650;
+  color: var(--text);
+}
+.docs-content li {
+  margin-bottom: 12px;
+  padding-left: 3px;
+}
+.docs-content ol {
+  padding-left: 20px;
+}
+.docs-content dt {
+  color: var(--primary);
+  font-size: 14px;
+  font-weight: 600;
+  margin-top: 22px;
+}
+.docs-content dd {
+  margin: 8px 0 20px;
+}
+.docs-content code {
+  padding: 2px 5px;
+  background: var(--surface-muted);
+  border-radius: 4px;
+}
+.docs-content table {
+  font-size: 13px;
+}
+.docs-content caption {
+  font-size: 13px;
+}
+.docs-content th,
+.docs-content td {
+  padding: 13px 14px;
+}
+.docs-content a {
+  overflow-wrap: anywhere;
+}
+@media (max-width: 1150px) {
+  .docs-layout {
+    grid-template-columns: 150px minmax(0, 1fr);
+    gap: 25px;
+  }
+  .docs-content section {
+    padding: 23px;
+  }
+  .docs-index a {
+    font-size: 12px;
+  }
+}
+@media (max-width: 680px) {
+  .docs-heading h1 {
+    font-size: 30px;
+  }
+  .docs-layout {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 23px;
+    margin-top: 24px;
+  }
+  .docs-index {
+    position: static;
+    display: flex;
+    flex-direction: row;
+    flex-wrap: wrap;
+    gap: 10px 17px;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 20px;
+  }
+  .docs-index a {
+    font-size: 12px;
+  }
+  .docs-content section {
+    padding: 21px;
+    margin-bottom: 17px;
+  }
+  .docs-content h2 {
+    font-size: 21px;
+  }
+  .docs-content p,
+  .docs-content li,
+  .docs-content dd {
+    font-size: 13px;
+  }
+  .docs-content dt {
+    font-size: 13px;
+  }
+}

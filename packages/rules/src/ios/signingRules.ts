@@ -3,7 +3,7 @@ import type { Rule } from '../types.js';
 
 export const iosSigningAndProvisioningRule: Rule<IosMetadata> = {
   id: 'RULE-IOS-SIGN-001',
-  revision: '2026.1',
+  revision: '2026.10',
   platform: 'ios',
   category: 'signing',
   severity: 'blocker',
@@ -12,14 +12,27 @@ export const iosSigningAndProvisioningRule: Rule<IosMetadata> = {
   whyItMatters: 'Physical iOS devices and the App Store verify cryptographic signatures and provisioning entitlements before executing any binary.',
   remediation: 'Ensure the IPA is signed with a valid Apple Developer Distribution Certificate and matching App Store provisioning profile.',
   officialReferenceUrl: 'https://developer.apple.com/support/code-signing/',
-  sourceReviewDate: '2026-01-10',
+  sourceReviewDate: '2026-10-21',
   applicabilityDescription: 'Applies to iOS IPAs.',
   requiredCapabilities: ['codesign'],
   evaluate: ({ metadata, toolCapabilities }) => {
     const signing = metadata.signing;
 
+    const failure = !signing.isSigned ? 'No code signature found in the main app bundle.'
+      : signing.entitlements?.['get-task-allow'] === true ? 'Development debugging entitlement get-task-allow is enabled.'
+      : signing.provisioningProfileType && ['development', 'ad-hoc', 'enterprise'].includes(signing.provisioningProfileType)
+        ? `Profile type ${signing.provisioningProfileType} is not for App Store submission.`
+      : signing.provisioningProfileExpiresAt && Date.parse(signing.provisioningProfileExpiresAt) <= Date.now()
+        ? `Provisioning profile expired on ${signing.provisioningProfileExpiresAt}.` : null;
+    if (failure) return { ruleId: 'RULE-IOS-SIGN-001', outcome: 'fail', evidence: failure };
+
+    const applicationId = signing.entitlements?.['application-identifier'];
+    if (typeof applicationId === 'string' && signing.teamId && applicationId !== `${signing.teamId}.${metadata.bundleIdentifier}`) {
+      return { ruleId: 'RULE-IOS-SIGN-001', outcome: 'needs-review', evidence: `Profile application-identifier ${applicationId} does not exactly match ${signing.teamId}.${metadata.bundleIdentifier}. Confirm profile, wildcard applicability and signed entitlements in Xcode.` };
+    }
+
     // Check capability: codesign requires macOS
-    if (!toolCapabilities['codesign']) {
+    if (!toolCapabilities['codesign'] || signing.codesignCheckOutcome === 'not-checked') {
       return {
         ruleId: 'RULE-IOS-SIGN-001',
         outcome: 'not-checked',
@@ -47,11 +60,15 @@ export const iosSigningAndProvisioningRule: Rule<IosMetadata> = {
       };
     }
 
+    if (signing.provisioningProfileType !== 'app-store') {
+      return { ruleId: 'RULE-IOS-SIGN-001', outcome: 'needs-review', evidence: 'Code signature checked, but the provisioning profile distribution type is unknown.' };
+    }
+
     const typeDesc = signing.provisioningProfileType ? `Type: ${signing.provisioningProfileType}` : 'Custom profile';
     return {
       ruleId: 'RULE-IOS-SIGN-001',
       outcome: 'pass',
-      evidence: `Cryptographic code signature verified. Provisioning profile present (${typeDesc}). Signer identity: ${signing.signerIdentity ?? 'Apple Distribution'}. Team ID: ${signing.teamId ?? 'Detected'}.`,
+      evidence: `Apple-anchored cryptographic code signature verified, including nested code. Embedded provisioning metadata: ${typeDesc}. Signer identity: ${signing.signerIdentity ?? 'Unknown'}. Team ID: ${signing.teamId ?? 'Unknown'}. Store account eligibility and the signed entitlement/profile match still require Xcode/App Store Connect validation.`,
       affectedFileOrConfig: 'embedded.mobileprovision',
     };
   },

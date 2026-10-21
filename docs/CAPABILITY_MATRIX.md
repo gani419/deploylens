@@ -5,11 +5,11 @@ DeployLens dynamically queries the host environment and adjusts inspection depth
 | Stage / Check | Windows / Linux (No Android SDK) | Windows / Linux (With Android SDK) | macOS (With Android & Xcode CLI) |
 | :--- | :---: | :---: | :---: |
 | **Android Archive Integrity** | Fully Supported (Built-in ZIP) | Fully Supported (Built-in ZIP) | Fully Supported (Built-in ZIP) |
-| **Android Manifest Extraction** | Fully Supported (Built-in AXML) | Fully Supported (`apkanalyzer` / AXML) | Fully Supported (`apkanalyzer` / AXML) |
+| **Android Manifest Extraction** | Built-in AXML / protobuf | Built-in AXML / protobuf | Built-in AXML / protobuf |
 | **SDK Compatibility (targetSdk, minSdk, maxSdk)** | Fully Supported | Fully Supported | Fully Supported |
 | **Release Configuration (debuggable, testOnly)** | Fully Supported | Fully Supported | Fully Supported |
-| **APK Signature Verification** | Structural V2/V3 Block Parse | Cryptographic Verification (`apksigner`) | Cryptographic Verification (`apksigner`) |
-| **AAB Signature Verification** | JAR Signature Block Parse | JAR Signature Block Parse | JAR Signature Block Parse |
+| **APK Signature Verification** | Not checked (structure only) | Cryptographic Verification (`apksigner`) | Cryptographic Verification (`apksigner`) |
+| **AAB Signature Verification** | JDK `jarsigner` required | JDK `jarsigner` required | JDK `jarsigner` required |
 | **Native 64-Bit Coverage** | Fully Supported (Built-in ELF) | Fully Supported (Built-in ELF) | Fully Supported (Built-in ELF) |
 | **16 KB ELF Page Alignment** | Fully Supported (Built-in ELF) | Fully Supported (Built-in ELF / `readelf`) | Fully Supported (Built-in ELF / `readelf`) |
 | **APK Zip Alignment** | Not Checked (`zipalign` missing) | Fully Supported (`zipalign`) | Fully Supported (`zipalign`) |
@@ -21,8 +21,8 @@ DeployLens dynamically queries the host environment and adjusts inspection depth
 | **iOS Purpose Strings Audit** | Fully Supported | Fully Supported | Fully Supported |
 | **iOS App Transport Security (ATS)** | Fully Supported | Fully Supported | Fully Supported |
 | **iOS Privacy Manifest Parsing** | Fully Supported | Fully Supported | Fully Supported |
-| **iOS Mobileprovision Profile Parse** | Cross-Platform CMS Reader | Cross-Platform CMS Reader | Cross-Platform / `security cms` |
-| **iOS Cryptographic Code Signing** | Not Checked (Requires macOS) | Not Checked (Requires macOS) | Fully Supported (`codesign -dvvv`) |
+| **iOS Mobileprovision Profile Parse** | Embedded CMS/XML metadata | Embedded CMS/XML metadata | Embedded CMS/XML metadata (not full profile trust validation) |
+| **iOS Cryptographic Code Signing** | Not Checked (Requires macOS) | Not Checked (Requires macOS) | Fully Supported (`codesign --verify --deep --strict --all-architectures`) |
 | **Store Listing Guidance Generation** | Fully Supported (Local Templates) | Fully Supported (Local Templates) | Fully Supported (Local Templates) |
 
 ---
