@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { StoreGuidance } from '@deploylens/contracts';
-import { Card, Badge, Button } from '@deploylens/ui';
+import { Card, Badge, Button } from '@deploylens/ui-web';
 
 interface ScreenStoreGuidanceProps {
   guidance: StoreGuidance;

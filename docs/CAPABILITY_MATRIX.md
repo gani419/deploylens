@@ -32,3 +32,11 @@ DeployLens dynamically queries the host environment and adjusts inspection depth
 - **Fully Supported**: Check executes completely using native platform tools or self-contained binary inspection algorithms.
 - **Not Checked**: The check cannot be performed with cryptographic authority due to missing host platform tools (e.g. `codesign` on Windows). It is reported as `Not checked` with an explanation and impacts the readiness status (`REVIEW REQUIRED`). It is **never** falsely marked as "Passed".
 - **Not Applicable**: The rule does not apply to this artifact type (e.g. `zipalign` on an AAB, or AAB bundle signing on an APK).
+
+
+## Additional web workflows
+
+- API-reference/declaration cross-check: bounded DEX and iOS main/framework binary signature search on all hosts. Heuristic only; missing references never establish no protected API usage. Runtime allow/deny/settings flows are not executed.
+- Local Android installation: optional ADB toolchain, explicit device selection and install confirmation.
+- Local iPhone installation: optional libimobiledevice/ideviceinstaller toolchain, supported CLI variants, compatible USB drivers, trusted device and eligible signed/provisioned IPA. Available on Windows with those external dependencies; no signing bypass. Hardware testing remains required.
+- Report sharing, editable listing drafts, optional baseline comparison and copyable research descriptions are web UI workflows. No public report storage or automatic posting is introduced.

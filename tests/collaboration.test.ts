@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import type { Finding, ScanSummary } from '@deploylens/contracts';
-import { compareBuilds } from '../apps/web/src/components/buildComparison.js';
-import { defaultMessage, emailDraft, reportFile } from '../apps/web/src/components/reportExport.js';
+import { compareBuilds } from '@deploylens/reporting';
+import { defaultMessage } from '@deploylens/reporting';
+import { emailDraft, reportFile } from '../apps/web/src/components/reportExport.js';
 
 function finding(outcome: Finding['outcome'], patch: Partial<Finding> = {}): Finding {
   return { id: Math.random().toString(), ruleId: 'SDK-1', ruleRevision: '2026.10', title: 'Target SDK', outcome, severity: 'blocker', evidence: 'targetSdkVersion: 35', affectedFileOrConfig: 'AndroidManifest.xml', whyItMatters: 'Store requirement', suggestedRemediation: 'Update target SDK', ...patch };

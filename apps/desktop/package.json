@@ -16,9 +16,11 @@
   "dependencies": {
     "@deploylens/contracts": "workspace:*",
     "@deploylens/core": "workspace:*",
-    "@deploylens/ui": "workspace:*",
+    "@deploylens/ui-web": "workspace:*",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "@deploylens/config": "workspace:*",
+    "@deploylens/utils": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

@@ -1,4 +1,7 @@
 import type { AndroidMetadata, ArtifactType } from '@deploylens/contracts';
+import { Facts, DetailCard } from './components/BuildDetails.js';
+import { PermissionUsagePanel } from './components/PermissionUsagePanel.js';
+import { size, yesNo } from '@deploylens/utils';
 
 export function AndroidDiagnostics({ metadata, artifactType }: { metadata: AndroidMetadata; artifactType: ArtifactType }) {
   const native = metadata.nativeLibraries;
@@ -6,6 +9,18 @@ export function AndroidDiagnostics({ metadata, artifactType }: { metadata: Andro
   const relevant = libraries.filter(lib => ['arm64-v8a', 'x86_64'].includes(lib.abi));
   const passed = relevant.filter(lib => lib.is16KbAligned === true).length;
   return <div className="android-diagnostics">
+    <div className="section-heading"><div><p className="eyebrow">ANDROID ARCHIVE ANALYSIS</p><h2>Android diagnostics</h2><p>Release configuration, permission references, exported components, transport and native compatibility. Runtime measurements require a running app.</p></div></div>
+    <div className="detail-grid masonry-details"><DetailCard title="SDK & device compatibility" icon="chip"><Facts rows={[
+      ['Minimum SDK', metadata.minSdkVersion ?? 'Unknown'], ['Target SDK', metadata.targetSdkVersion ?? 'Unknown'], ['Maximum SDK', metadata.maxSdkVersionDeclared ? metadata.maxSdkVersion : 'Not declared'], ['Packaged ABIs', native.abis.join(', ') || 'No native libraries'], ['64-bit native coverage', yesNo(native.has64BitCoverage)],
+    ]}/><div className="tag-list">{metadata.hardwareFeatures.map(feature => <code key={feature.name}>{feature.name} · {feature.required ? 'required' : 'optional'}</code>)}</div></DetailCard>
+    <DetailCard title="Release & transport"><Facts rows={[
+      ['Debuggable', yesNo(metadata.debuggable.value)], ['Test-only', yesNo(metadata.testOnly.value)], ['Cleartext traffic allowed', yesNo(metadata.security.usesCleartextTraffic)], ['Network security config', yesNo(metadata.security.networkSecurityConfigPresent)], ['Archive size', size(metadata.packaging.archiveSizeBytes)], ['DEX size', size(metadata.packaging.dexSizeBytes)], ['Native code size', size(metadata.packaging.nativeLibsSizeBytes)],
+    ]}/><p className="field-note">Transport declarations do not establish the security of every endpoint, SDK or network override.</p></DetailCard>
+    <DetailCard title="Manifest permissions"><Facts rows={[
+      ['Declared', metadata.permissions.declared.length], ['Sensitive', metadata.permissions.sensitivePermissions.length], ['Special approval', metadata.permissions.requiresSpecialApproval.length],
+    ]}/><div className="tag-list">{metadata.permissions.declared.map(permission => <code key={permission}>{permission}</code>)}</div></DetailCard>
+    <DetailCard title="Exported component exposure"><p>Review externally accessible activities, services, receivers and providers.</p>{metadata.security.exportedComponents.length ? <ul className="file-list">{metadata.security.exportedComponents.map((component, index) => <li key={`${component.name}-${index}`}><span><strong>{component.type}</strong> <code>{component.name}</code><small>{component.exported ? 'Exported' : 'Not exported'} · {component.permissionRequired || 'No component permission extracted'}</small></span></li>)}</ul> : <p>No components were extracted.</p>}</DetailCard></div>
+    <PermissionUsagePanel audit={metadata.permissionUsage}/>
     <div className="diagnostic-intro"><p className="eyebrow">ANDROID BUILD DIAGNOSTICS</p><h3>16 KB page-size inspection</h3><p>These checks inspect your archive. Android Studio Profiler and device runtime tests have not been run.</p><a href="https://developer.android.com/guide/practices/page-sizes" target="_blank" rel="noreferrer">Android 16 KB testing guide ↗</a></div>
     <div className="diagnostic-grid">
       <article className="finding"><h3>Native ELF alignment</h3><strong className="diagnostic-value">{!libraries.length ? 'No native libraries' : !relevant.length ? 'No recognized 64-bit libraries' : `${passed} / ${relevant.length} aligned`}</strong><p>{!libraries.length ? 'No packaged .so files were found. Dependencies downloaded at runtime are outside this inspection.' : 'Checks 64-bit ELF load-segment alignment. Malformed or unreadable libraries stay unverified.'}</p></article>

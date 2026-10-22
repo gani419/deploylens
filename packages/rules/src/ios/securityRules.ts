@@ -45,7 +45,7 @@ export const iosTransportSecurityRule: Rule<IosMetadata> = {
 
 export const iosPurposeStringsRule: Rule<IosMetadata> = {
   id: 'RULE-IOS-SEC-002',
-  revision: '2026.1',
+  revision: '2026.10.22',
   platform: 'ios',
   category: 'permissions-security',
   severity: 'blocker',
@@ -62,8 +62,8 @@ export const iosPurposeStringsRule: Rule<IosMetadata> = {
     if (keys.length === 0) {
       return {
         ruleId: 'RULE-IOS-SEC-002',
-        outcome: 'pass',
-        evidence: 'No hardware purpose description keys detected in Info.plist.',
+        outcome: 'not-checked',
+        evidence: 'No purpose description keys were extracted from Info.plist. This does not prove protected APIs are unused. Review the API-reference audit and test permission-dependent features on a device.',
         affectedFileOrConfig: 'Info.plist',
       };
     }

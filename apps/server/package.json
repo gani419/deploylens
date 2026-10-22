@@ -1,0 +1,15 @@
+{
+  "name": "@deploylens/server",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.mjs",
+    "build": "node scripts/check.mjs",
+    "typecheck": "node scripts/check.mjs"
+  },
+  "dependencies": {
+    "@deploylens/core": "workspace:*",
+    "@deploylens/config": "workspace:*"
+  }
+}

@@ -1,5 +1,5 @@
 import type { Finding, ScanSummary } from '@deploylens/contracts';
-import { identity } from './presentation.js';
+import { identity } from '@deploylens/utils';
 
 const unresolved = (finding: Finding) => finding.outcome === 'fail' || finding.outcome === 'needs-review';
 // Attribute values in a manifest location are evidence, not a different location.

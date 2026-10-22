@@ -143,7 +143,7 @@ test('sharing keeps editable context and exports real report and email attachmen
   await message.fill('Hello team,\nPlease fix this build.\nRegards, Ganesh');
   await page.context().route('https://mail.google.com/**', route => route.fulfill({ status: 200, contentType: 'text/html', body: '<title>Mock email composer</title>' }));
   const popupEvent = page.waitForEvent('popup');
-  await page.getByRole('button', { name: 'Open Gmail draft' }).click();
+  await page.getByRole('button', { name: 'Copy & open selected app' }).click();
   const popup = await popupEvent;
   await popup.waitForURL('https://mail.google.com/**');
   // Inspect the outgoing compose URL without relying on a Google account or network.
@@ -188,8 +188,10 @@ test('optional comparison reports confirmed fixes while keeping the current buil
   await expect(page.getByRole('heading', { name: 'Build changes', exact: true })).toBeVisible();
   await expect(page.getByRole('heading', { name: /^Confirmed fixed/ })).not.toContainText('(0)');
   await expect(page.locator('.report-header')).toContainText('valid-app.apk');
+  await expect(page.locator('.workspace')).toHaveCSS('margin-left', '300px');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
   await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo({ top: 0, behavior: 'instant' }); });
-  await page.screenshot({ path: 'test-results/comparison.png', fullPage: true });
+  await page.screenshot({ path: 'test-results/comparison.png', fullPage: true, animations: 'disabled' });
   await page.getByLabel('Previous build archive').setInputFiles('fixtures/ios/valid-app.ipa');
   await page.getByRole('button', { name: 'Inspect previous build', exact: true }).click();
   await expect(page.getByRole('alert')).toContainText('same platform');
@@ -205,4 +207,118 @@ test('device installer explains local requirements and does not enable installat
   await page.getByRole('button', { name: 'Refresh connected devices' }).click();
   await expect(page.getByRole('alert')).toContainText('Local device access is disabled');
   await expect(page.getByRole('button', { name: 'Install APK on selected device' })).toBeDisabled();
+});
+
+
+test('desktop navigation collapses to an accessible icon rail while remaining scrollable', async ({ page }) => {
+  await page.setViewportSize({ width: 1600, height: 720 }); await page.goto('/');
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '300px');
+  await expect(page.locator('.workspace-header').getByRole('button', { name: 'Collapse navigation' })).toHaveCount(0);
+  await page.locator('.sidebar').getByRole('button', { name: 'Collapse navigation' }).click();
+  await expect(page.getByRole('button', { name: 'Expand navigation' })).toHaveAttribute('aria-expanded', 'false');
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '84px');
+  await expect(page.locator('.sidebar-link .nav-label').first()).toBeHidden();
+  await page.getByRole('link', { name: 'Documentation', exact: true }).click();
+  await expect(page).toHaveURL('/documentation');
+  await page.screenshot({ path: 'test-results/navigation-collapsed.png', animations: 'disabled' });
+  await page.getByRole('button', { name: 'Expand navigation' }).click();
+  await expect(page.locator('.sidebar')).toHaveCSS('width', '300px');
+  expect(await page.locator('.sidebar').evaluate(element => getComputedStyle(element).scrollbarWidth)).toBe('none');
+  await page.locator('.sidebar').evaluate(element => { element.scrollTop = element.scrollHeight; });
+  expect(await page.locator('.sidebar').evaluate(element => element.scrollTop)).toBeGreaterThan(0);
+});
+
+test('store drafts edit directly and survive report navigation, and issues offer a research draft', async ({ page, context }) => {
+  await context.grantPermissions(['clipboard-read', 'clipboard-write']);
+  await page.goto('/'); await page.locator('#build-file').setInputFiles('fixtures/android/valid-app.apk');
+  await page.getByRole('button', { name: 'Inspect build', exact: true }).click();
+  await page.getByRole('button', { name: 'Store preparation', exact: true }).click();
+  await expect(page.locator('.listing-editor')).toHaveCount(0);
+  await page.locator('.listing-preview').first().click();
+  const editor = page.locator('.listing-editor').first();
+  await editor.fill('Edited release description');
+  await page.getByRole('button', { name: /^Copy / }).first().click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('Edited release description');
+  await page.getByRole('button', { name: 'Build details', exact: true }).click();
+  await expect(page.locator('.masonry-details')).toHaveCSS('column-count', '2');
+  await expect(page.locator('.workspace')).toHaveCSS('margin-left', '300px');
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+  await page.evaluate(() => { (document.activeElement as HTMLElement | null)?.blur(); window.scrollTo({ top: 0, behavior: 'instant' }); });
+  await page.screenshot({ path: 'test-results/build-details-flow.png', fullPage: true, animations: 'disabled' });
+  await page.getByRole('button', { name: 'Store preparation', exact: true }).click();
+  await expect(page.locator('.listing-editor')).toHaveCount(0);
+  await expect(page.locator('.listing-preview').first()).toHaveText('Edited release description');
+  await page.locator('.listing-preview').first().click();
+  await editor.fill('Discard this edit'); await editor.press('Escape');
+  await expect(page.locator('.listing-preview').first()).toHaveText('Edited release description');
+  await page.getByRole('button', { name: 'Findings & fixes', exact: true }).click();
+  await page.getByRole('button', { name: 'Research this issue', exact: true }).first().click();
+  const draft = page.getByRole('textbox', { name: 'Issue description' }).first();
+  expect(await draft.inputValue()).toContain('### Reproduction details');
+  expect(await draft.inputValue()).toContain('Suggested fix');
+  await draft.fill('## Edited research question');
+  await page.getByRole('button', { name: 'Copy issue description' }).first().click();
+  expect(await page.evaluate(() => navigator.clipboard.readText())).toBe('## Edited research question');
+});
+
+test('permission diagnostics flags API/declaration mismatches and switches platform views', async ({ page }) => {
+  const apk = zip([
+    { name: 'AndroidManifest.xml', data: Buffer.from('<manifest xmlns:android="http://schemas.android.com/apk/res/android" package="com.camera.sample" android:versionCode="1" android:versionName="1.0"><uses-sdk android:minSdkVersion="24" android:targetSdkVersion="36"/><application android:label="Camera Sample"/></manifest>') },
+    { name: 'classes.dex', data: Buffer.from('dex\n035\0 Landroid/hardware/camera2/CameraManager; openCamera requestPermissions android.settings.APPLICATION_DETAILS_SETTINGS') },
+  ]);
+  await page.goto('/'); await page.locator('#build-file').setInputFiles({ name: 'camera.apk', mimeType: 'application/octet-stream', buffer: apk });
+  await page.getByRole('button', { name: 'Inspect build', exact: true }).click();
+  await page.getByRole('button', { name: 'Android diagnostics', exact: true }).click();
+  await expect(page.getByRole('table', { name: 'Referenced features and declarations' })).toContainText('android.permission.CAMERA');
+  await expect(page.getByRole('table', { name: 'Referenced features and declarations' })).toContainText('Missing');
+  await expect(page.getByRole('heading', { name: 'Exported component exposure' })).toBeVisible();
+  await expect(page.getByRole('button', { name: 'iOS diagnostics', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'Inspect another build' }).click();
+  await page.locator('#build-file').setInputFiles('fixtures/ios/valid-app.ipa');
+  await page.getByRole('button', { name: 'Inspect build', exact: true }).click();
+  await expect(page.getByRole('button', { name: 'Android diagnostics', exact: true })).toHaveCount(0);
+  await page.getByRole('button', { name: 'iOS diagnostics', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'API usage & permission declarations', exact: true })).toBeVisible();
+  await page.getByRole('button', { name: 'Install on iPhone', exact: true }).click();
+  await expect(page.getByRole('heading', { name: 'Install on iPhone', exact: true })).toBeVisible();
+  await expect(page.getByText('libimobiledevice', { exact: false }).first()).toBeVisible();
+  await expect(page.getByRole('button', { name: 'Install IPA on selected device' })).toBeDisabled();
+});
+
+
+test('one Share action hands the selected report and original archive to system sharing', async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, 'canShare', { value: () => true, configurable: true });
+    Object.defineProperty(navigator, 'share', { value: async (data: ShareData) => { (window as unknown as { shared: unknown }).shared = { title: data.title, text: data.text, files: data.files?.map(file => ({ name: file.name, size: file.size })) }; }, configurable: true });
+  });
+  await page.goto('/'); await page.locator('#build-file').setInputFiles('fixtures/android/valid-app.apk');
+  await page.getByRole('button', { name: 'Inspect build', exact: true }).click();
+  await page.getByRole('button', { name: 'Share report & build', exact: true }).first().click();
+  await page.getByRole('checkbox', { name: 'Also share the original APK' }).check();
+  await page.getByRole('button', { name: 'Share', exact: true }).click();
+  const shared = await page.evaluate(() => (window as unknown as { shared: { text: string; files: Array<{ name: string; size: number }> } }).shared);
+  expect(shared.text).toContain('Hello team,'); expect(shared.files.map(file => file.name)).toEqual(['valid-app.apk.deploylens.html', 'valid-app.apk']);
+  await expect(page.getByRole('status')).toContainText('Share handoff completed');
+});
+
+
+test('an interrupted inspection stream never creates a successful report', async ({ page }) => {
+  await page.route('**/api/scans?*', route => route.fulfill({ status: 200, contentType: 'application/x-ndjson', body: '{"type":"scan.completed"' }));
+  await page.goto('/'); await page.locator('#build-file').setInputFiles('fixtures/android/valid-app.apk');
+  await page.getByRole('button', { name: 'Inspect build', exact: true }).click();
+  await expect(page.getByRole('alert')).toContainText('interrupted');
+  await expect(page.getByRole('button', { name: 'Download JSON report' })).toHaveCount(0);
+  await expect(page.getByRole('button', { name: 'Inspect build', exact: true })).toBeEnabled();
+});
+
+test('cancelling browser transport leaves the selected archive ready for retry', async ({ page }) => {
+  let pending: import('@playwright/test').Route | undefined;
+  await page.route('**/api/scans?*', route => { pending = route; });
+  await page.goto('/'); await page.locator('#build-file').setInputFiles('fixtures/android/valid-app.apk');
+  await page.getByRole('button', { name: 'Inspect build', exact: true }).click();
+  await page.getByRole('button', { name: 'Cancel inspection' }).click();
+  await expect(page.getByRole('alert')).toContainText('cancelled');
+  await expect(page.getByRole('button', { name: 'Inspect build', exact: true })).toBeEnabled();
+  await expect(page.getByRole('button', { name: 'Download JSON report' })).toHaveCount(0);
+  await pending?.abort().catch(() => {});
 });

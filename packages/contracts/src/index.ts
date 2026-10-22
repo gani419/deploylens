@@ -7,3 +7,5 @@ export * from './ios.js';
 export * from './readiness.js';
 export * from './storeGuidance.js';
 export * from './events.js';
+export * from './permissionUsage.js';
+export * from './service.js';

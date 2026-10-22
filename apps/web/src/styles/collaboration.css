@@ -46,6 +46,11 @@
 .comparison-list li { margin: 18px 0; }
 .comparison-list p { margin: 4px 0; font-size: var(--font-sm); }
 .comparison-list small { color: var(--text-muted); }
+.comparison-dropzone { display: flex; flex-direction: column; align-items: center; gap: 10px; width: 100%; padding: 28px; border: 1px dashed var(--line-strong); border-radius: var(--radius); background: var(--surface-raised); color: var(--text); text-align: center; }
+.comparison-dropzone:hover, .comparison-dropzone.dragging { background: var(--primary-soft); border-color: var(--primary); }
+.comparison-dropzone span, .comparison-dropzone small { font-size: var(--font-sm); color: var(--text-secondary); }
+.research-issue { margin: 22px 0; }
+.research-content { margin-top: 16px; border: 1px solid var(--line); padding: 18px; border-radius: var(--radius-sm); background: var(--surface-raised); }
 @media (max-width: 1100px) {
   .collaboration-grid, .comparison-grid { grid-template-columns: minmax(0, 1fr); }
 }

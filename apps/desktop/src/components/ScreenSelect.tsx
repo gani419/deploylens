@@ -1,6 +1,7 @@
+import { size } from '@deploylens/utils';
 import React, { useState } from 'react';
 import type { ArtifactIdentity, CapabilityReport, UserAppInfo } from '@deploylens/contracts';
-import { Button, Card, Badge } from '@deploylens/ui';
+import { Button, Card, Badge } from '@deploylens/ui-web';
 
 interface ScreenSelectProps {
   capabilities: CapabilityReport | null;
@@ -192,7 +193,7 @@ export const ScreenSelect: React.FC<ScreenSelectProps> = ({
             <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', marginBottom: '18px' }}>
               <Badge variant="primary" label={`Platform: ${selectedArtifact.platform.toUpperCase()}`} />
               <Badge variant="secondary" label={`Format: .${selectedArtifact.artifactType}`} />
-              <Badge variant="neutral" label={`Size: ${(selectedArtifact.sizeBytes / (1024 * 1024)).toFixed(2)} MB`} />
+              <Badge variant="neutral" label={`Size: ${size(selectedArtifact.sizeBytes)}`} />
             </div>
 
             <div style={{ fontSize: '0.82rem', color: '#94a3b8', background: '#131b2e', padding: '10px 14px', borderRadius: '6px' }}>

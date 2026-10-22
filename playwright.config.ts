@@ -6,5 +6,5 @@ export default defineConfig({
   timeout: 30000,
   workers: 1,
   use: { baseURL: `http://127.0.0.1:${port}`, channel: 'chrome', headless: true, screenshot: 'only-on-failure' },
-  webServer: { command: 'node apps/web/server/index.mjs', env: { PORT: port, HOST: '127.0.0.1' }, url: `http://127.0.0.1:${port}/api/health`, reuseExistingServer: false },
+  webServer: { command: 'node apps/server/src/index.mjs', env: { PORT: port, HOST: '127.0.0.1' }, url: `http://127.0.0.1:${port}/api/health`, reuseExistingServer: false },
 });

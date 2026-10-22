@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { MouseEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Documentation } from './Documentation.js';
@@ -11,6 +11,8 @@ import { ReportHeader, ReportOverview } from './components/ReportOverview.js';
 import { FindingsView, AllChecks } from './components/FindingsView.js';
 import { BuildDetails, IosDiagnostics } from './components/BuildDetails.js';
 import { StorePreparation } from './components/StorePreparation.js';
+import { createReportSessionStore } from '@deploylens/store';
+import { createSharingDraft } from '@deploylens/reporting';
 import { ManualVerification } from './components/ManualVerification.js';
 import { ShareReport } from './components/ShareReport.js';
 import { CompareBuilds } from './components/CompareBuilds.js';
@@ -28,12 +30,17 @@ function App() {
   const baseline = useInspection();
   const [page, setPage] = useState(location.pathname === '/documentation' ? 'documentation' : 'inspect');
   const [view, setView] = useState<ReportView>('overview');
-  const [reviewed, setReviewed] = useState<string[]>([]);
+  const sessionStore = useMemo(() => {
+    const store = createReportSessionStore(scan.summary?.scanId ?? null);
+    if (scan.summary) store.setSharingDraft(createSharingDraft(scan.summary));
+    return store;
+  }, [scan.summary]);
+  const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.getState, sessionStore.getState);
   useEffect(() => {
     const pop = () => setPage(location.pathname === '/documentation' ? 'documentation' : 'inspect');
     window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop);
   }, []);
-  useEffect(() => { setReviewed([]); if (scan.summary) { setView('overview'); window.scrollTo({ top: 0 }); } }, [scan.summary]);
+  useEffect(() => { if (scan.summary) { setView('overview'); window.scrollTo({ top: 0 }); } }, [scan.summary]);
   function navigate(event: MouseEvent<HTMLAnchorElement>, next: 'inspect' | 'documentation') {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
     event.preventDefault(); history.pushState(null, '', next === 'documentation' ? '/documentation' : '/');
@@ -57,9 +64,9 @@ function App() {
       {view === 'details' && <BuildDetails summary={scan.summary}/>}
       {view === 'android' && scan.summary.metadata.android && <AndroidDiagnostics metadata={scan.summary.metadata.android} artifactType={scan.summary.artifact.artifactType}/>}
       {view === 'ios' && <IosDiagnostics summary={scan.summary}/>}
-      {view === 'guidance' && <StorePreparation summary={scan.summary}/>}
-      {view === 'verification' && <ManualVerification summary={scan.summary} checked={reviewed} setChecked={setReviewed}/>}
-      <div hidden={view !== 'share'}><ShareReport key={scan.summary.scanId} summary={scan.summary} file={scan.file}/></div>
+      <div hidden={view !== 'guidance'}><StorePreparation key={scan.summary.scanId} summary={scan.summary} drafts={session.listingDrafts} onDraftChange={sessionStore.setListingDraft}/></div>
+      {view === 'verification' && <ManualVerification summary={scan.summary} checked={session.reviewed} setChecked={sessionStore.setReviewed}/>}
+      <div hidden={view !== 'share'}><ShareReport key={scan.summary.scanId} summary={scan.summary} file={scan.file} draft={session.sharingDraft!} onDraftChange={sessionStore.setSharingDraft}/></div>
       {view === 'compare' && <CompareBuilds current={scan.summary} baseline={baseline}/>}
       {view === 'install' && <DeviceInstall key={scan.summary.scanId} summary={scan.summary} file={scan.file}/>}
       <p className="report-disclaimer">{scan.summary.assessment.disclaimer}</p>

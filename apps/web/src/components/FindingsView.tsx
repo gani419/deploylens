@@ -1,13 +1,14 @@
 import { useState } from 'react';
 import type { Finding, ScanSummary } from '@deploylens/contracts';
 import { StatusBadge } from './StatusBadge.js';
-import { safeLink } from './presentation.js';
+import { safeLink } from '@deploylens/utils';
 import { Icon } from './Icon.js';
+import { ResearchIssue } from './ResearchIssue.js';
 
 export function FindingDetails({ finding, initiallyOpen = false }: { finding: Finding; initiallyOpen?: boolean }) {
   const guidance = finding.guidance;
   const fallback = finding.outcome === 'needs-review' ? 'This needs a developer decision. Review the evidence and intended app behavior before treating it as a defect.'
-    : finding.outcome === 'not-checked' ? 'This could not be verified with the available tools or archive data. It is not proof of a broken build.'
+    : finding.outcome === 'not-checked' ? 'This is a verification gap. It could not be verified with the available tools or archive data and needs developer testing.'
     : finding.outcome === 'fail' ? 'The inspected evidence did not satisfy this check. Review the affected configuration and confirm the fix in the final release artifact.'
     : 'This outcome applies to the inspected evidence only. Other release requirements may still need verification.';
   return <details className={`finding-card ${finding.outcome}`} open={initiallyOpen}>
@@ -15,6 +16,7 @@ export function FindingDetails({ finding, initiallyOpen = false }: { finding: Fi
     <div className="finding-body"><div className="meaning-block"><span className="section-tag">WHAT THIS MEANS</span><p>{guidance?.meaning ?? fallback}</p></div>
       <div className="finding-explanation"><section><h4>Observed evidence</h4><p className="evidence-text">{finding.evidence}</p>{finding.isSuspectedHeuristic && <p className="field-note">Heuristic indication; confirm this against actual app behavior.</p>}</section><section><h4>Why it matters</h4><p>{finding.whyItMatters}</p></section></div>
       {!['pass', 'not-applicable'].includes(finding.outcome) && <div className="finding-explanation action-columns"><section><h4><Icon name="details"/>What to do next</h4><ol>{(guidance?.steps ?? [finding.suggestedRemediation]).map((step, index) => <li key={index}>{step}</li>)}</ol></section><section><h4><Icon name="checks"/>How to verify</h4><ol>{(guidance?.verification ?? ['Inspect the final rebuilt artifact again and verify the affected feature using platform tools.']).map((step, index) => <li key={index}>{step}</li>)}</ol></section></div>}
+      {!['pass', 'not-applicable'].includes(finding.outcome) && <ResearchIssue finding={finding}/>}
       <div className="finding-scope"><Icon name="info"/><p>{guidance?.limitation ?? finding.applicabilityNote ?? 'This check does not guarantee production readiness or store approval.'}</p></div>
       <footer className="finding-footer"><div><code>{finding.ruleId}</code><span>Revision {finding.ruleRevision}</span>{finding.sourceReviewDate && <span>Reviewed {finding.sourceReviewDate}</span>}{finding.effectiveDates && <span>Effective: {finding.effectiveDates}</span>}</div>{safeLink(finding.officialReferenceUrl) && <a href={safeLink(finding.officialReferenceUrl)} target="_blank" rel="noreferrer">Official reference <Icon name="arrow"/></a>}</footer>
     </div>

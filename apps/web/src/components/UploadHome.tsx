@@ -1,7 +1,7 @@
 import { useRef, useState } from 'react';
 import type { Inspection } from '../hooks/useInspection.js';
 import { Icon } from './Icon.js';
-import { formats, size } from './presentation.js';
+import { formats, size } from '@deploylens/utils';
 
 export function UploadHome({ scan }: { scan: Inspection }) {
   const input = useRef<HTMLInputElement>(null);

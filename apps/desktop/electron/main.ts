@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog, shell, clipboard } from 'electron'
 import path from 'node:path';
 import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { product } from '@deploylens/config';
 import { DeployLensEngine } from '@deploylens/core';
 import type { ScanRequest, ArtifactIdentity, Platform, ArtifactType } from '@deploylens/contracts';
 
@@ -17,7 +18,7 @@ function createWindow() {
     height: 850,
     minWidth: 950,
     minHeight: 700,
-    title: 'DeployLens',
+    title: product.name,
     backgroundColor: '#090d16',
     webPreferences: {
       preload: path.join(__dirname, 'preload.cjs'),

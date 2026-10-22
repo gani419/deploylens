@@ -62,6 +62,7 @@ import { SafeZipReader, type ZipEntryHeader } from './safeZip.js';
 import { TemporaryWorkspace } from './workspace.js';
 import { detectAllCapabilities } from './capabilities.js';
 import { computeAssessment } from './summarizer.js';
+import { scanPermissionReferences, permissionUsageCheck } from './permissionUsage.js';
 
 export class DeployLensEngine {
   private activeScans = new Map<string, { cancelled: boolean; workspace?: TemporaryWorkspace }>();
@@ -618,6 +619,7 @@ export class DeployLensEngine {
       isSuspectedVulnerable: c.exported && !c.permission && !c.hasIntentFilter,
     }));
 
+    const permissionUsage = scanPermissionReferences(zipReader, entries, 'android', declaredPerms);
     await executeStage(7, 'android-review-permissions-security', 'Review permissions and security configuration', async () => {
       const dummyMeta: Partial<AndroidMetadata> = {
         platform: 'android',
@@ -647,6 +649,7 @@ export class DeployLensEngine {
       });
 
       return [
+        permissionUsageCheck('android', permissionUsage),
         {
           checkId: 'CHK-AND-CLEARTEXT',
           name: 'Cleartext HTTP Traffic Policy',
@@ -713,6 +716,7 @@ export class DeployLensEngine {
     // Assemble final AndroidMetadata
     const androidMetadata: AndroidMetadata = {
       platform: 'android',
+      permissionUsage,
       packageId: manifestData.packageId,
       appLabel: manifestData.appLabel,
       appLabelSource,
@@ -910,6 +914,8 @@ export class DeployLensEngine {
       hasCodeSignature: hasCodeSig,
     });
 
+    iosMetadata.permissionUsage = scanPermissionReferences(zipReader, entries, 'ios', Object.entries(iosMetadata.purposeStrings).filter(([, value]) => value.trim()).map(([key]) => key), typeof executable === 'string' ? `${appBundleDir}${executable}` : undefined);
+
     // Stage 2: Read main app Info.plist
     await executeStage(2, 'ios-read-info-plist', 'Read main app Info.plist and nested bundles', async () => {
       return [
@@ -989,6 +995,7 @@ export class DeployLensEngine {
       });
 
       return [
+        permissionUsageCheck('ios', iosMetadata.permissionUsage!),
         {
           checkId: 'CHK-IOS-ATS',
           name: 'App Transport Security (ATS)',

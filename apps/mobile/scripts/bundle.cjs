@@ -1,0 +1,10 @@
+const fs = require('node:fs');
+const path = require('node:path');
+const {spawnSync} = require('node:child_process');
+const platform = process.argv[2];
+if (!['android', 'ios'].includes(platform)) throw new Error('Expected android or ios');
+const output = path.join(__dirname, '..', 'dist', platform);
+fs.mkdirSync(output, {recursive: true});
+const cli = path.join(__dirname, '..', 'node_modules', 'react-native', 'cli.js');
+const result = spawnSync(process.execPath, [cli, 'bundle', '--platform', platform, '--dev', 'false', '--entry-file', 'index.js', '--bundle-output', path.join(output, 'index.jsbundle'), '--assets-dest', output], {stdio:'inherit', cwd:path.join(__dirname,'..')});
+process.exit(result.status ?? 1);

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import type { ReactNode, MouseEvent } from 'react';
 import type { ScanSummary } from '@deploylens/contracts';
-import { product } from '../product.js';
+import { product } from '@deploylens/config';
 import { Icon } from './Icon.js';
 
 export type ReportView = 'overview' | 'findings' | 'checks' | 'details' | 'android' | 'ios' | 'guidance' | 'verification' | 'share' | 'compare' | 'install';
@@ -19,6 +19,7 @@ export function WorkspaceShell({ children, page, view, summary, onNavigate, onVi
 }) {
   const [theme, setTheme] = useState(startingTheme);
   const [drawer, setDrawer] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [narrow, setNarrow] = useState(matchMedia('(max-width: 900px)').matches);
   const sidebar = useRef<HTMLElement>(null), trigger = useRef<HTMLButtonElement>(null);
   useEffect(() => {
@@ -50,6 +51,7 @@ export function WorkspaceShell({ children, page, view, summary, onNavigate, onVi
     document.addEventListener('keydown', keyboard);
     return () => { document.body.classList.remove('drawer-open'); document.removeEventListener('keydown', keyboard); trigger.current?.focus(); };
   }, [drawer]);
+  const titles = { ...viewTitles, install: summary?.artifact.platform === 'ios' ? 'Install on iPhone' : 'Install on Android' };
   const links: Array<{ id: ReportView; icon: string; count?: number }> = [
     { id: 'overview', icon: 'grid' }, { id: 'findings', icon: 'findings', count: summary ? summary.stages.flatMap(stage => stage.checks.flatMap(check => check.findings)).filter(finding => !['pass', 'not-applicable'].includes(finding.outcome)).length : undefined },
     { id: 'checks', icon: 'checks' }, { id: 'details', icon: 'details' },
@@ -57,18 +59,18 @@ export function WorkspaceShell({ children, page, view, summary, onNavigate, onVi
     { id: 'guidance', icon: 'store' }, { id: 'verification', icon: 'shield' },
     { id: 'share', icon: 'copy' }, { id: 'compare', icon: 'grid' }, { id: 'install', icon: 'chip' },
   ];
-  return <div className="app-shell">
+  return <div className={`app-shell ${collapsed ? 'nav-collapsed' : ''}`}>
     <a className="skip-link" href="#workspace-content">Skip to content</a>
     {drawer && <button className="drawer-backdrop" aria-label="Close navigation" onClick={() => setDrawer(false)}/>}
     <aside id="workspace-sidebar" ref={sidebar} className={`sidebar ${drawer ? 'is-open' : ''}`} inert={narrow && !drawer} aria-hidden={narrow && !drawer ? true : undefined} role={narrow && drawer ? 'dialog' : undefined} aria-modal={narrow && drawer ? true : undefined} aria-label="Workspace navigation">
-      <div className="sidebar-brand"><a href="/" onClick={event => { onNavigate(event, 'inspect'); setDrawer(false); }} aria-label="DeployLens home"><span className="brand-symbol"><Icon name="shield"/></span><span>DeployLens<small>RELEASE WORKSPACE</small></span></a><button className="drawer-close icon-button" aria-label="Close navigation" onClick={() => setDrawer(false)}><Icon name="close"/></button></div>
+      <div className="sidebar-brand"><a href="/" onClick={event => { onNavigate(event, 'inspect'); setDrawer(false); }} aria-label="DeployLens home"><span className="brand-symbol"><Icon name="shield"/></span><span className="brand-name">DeployLens<small>RELEASE WORKSPACE</small></span></a><button className="sidebar-toggle icon-button" aria-label={collapsed ? 'Expand navigation' : 'Collapse navigation'} title={collapsed ? 'Expand navigation' : 'Collapse navigation'} aria-expanded={!collapsed} aria-controls="workspace-sidebar" onClick={() => setCollapsed(value => !value)}><Icon name="chevron"/></button><button className="drawer-close icon-button" aria-label="Close navigation" onClick={() => setDrawer(false)}><Icon name="close"/></button></div>
       <div className="workspace-label"><span className="workspace-avatar">DL</span><div>Build inspection<small>Android & iOS</small></div><span className="alpha">ALPHA</span></div>
-      <nav aria-label="Primary navigation"><p className="nav-caption">WORKSPACE</p><a className={`sidebar-link ${page === 'inspect' && !summary ? 'active' : ''}`} href="/" onClick={event => { onNavigate(event, 'inspect'); setDrawer(false); }} aria-current={page === 'inspect' && !summary ? 'page' : undefined}><Icon name="upload"/>Inspect a build</a>
-        <p className="nav-caption report-caption">CURRENT REPORT</p>{links.map(link => <button key={link.id} className={`sidebar-link ${page === 'inspect' && summary && view === link.id ? 'active' : ''}`} disabled={!summary} title={!summary ? 'Inspect a build to view this report' : undefined} aria-current={page === 'inspect' && summary && view === link.id ? 'page' : undefined} onClick={() => { onView(link.id); setDrawer(false); }}><Icon name={link.icon}/><span>{viewTitles[link.id]}</span>{link.count !== undefined && <span className="nav-count">{link.count}</span>}</button>)}
-        <p className="nav-caption report-caption">RESOURCES</p><a href="/documentation" className={`sidebar-link ${page === 'documentation' ? 'active' : ''}`} onClick={event => { onNavigate(event, 'documentation'); setDrawer(false); }} aria-current={page === 'documentation' ? 'page' : undefined}><Icon name="book"/>Documentation</a>
+      <nav aria-label="Primary navigation"><p className="nav-caption">WORKSPACE</p><a className={`sidebar-link ${page === 'inspect' && !summary ? 'active' : ''}`} href="/" aria-label="Inspect a build" title="Inspect a build" onClick={event => { onNavigate(event, 'inspect'); setDrawer(false); }} aria-current={page === 'inspect' && !summary ? 'page' : undefined}><Icon name="upload"/><span className="nav-label">Inspect a build</span></a>
+        <p className="nav-caption report-caption">CURRENT REPORT</p>{links.map(link => <button key={link.id} className={`sidebar-link ${page === 'inspect' && summary && view === link.id ? 'active' : ''}`} disabled={!summary} aria-label={titles[link.id]} title={!summary ? 'Inspect a build to view this report' : titles[link.id]} aria-current={page === 'inspect' && summary && view === link.id ? 'page' : undefined} onClick={() => { onView(link.id); setDrawer(false); }}><Icon name={link.icon}/><span className="nav-label">{titles[link.id]}</span>{link.count !== undefined && <span className="nav-count">{link.count}</span>}</button>)}
+        <p className="nav-caption report-caption">RESOURCES</p><a href="/documentation" aria-label="Documentation" title="Documentation" className={`sidebar-link ${page === 'documentation' ? 'active' : ''}`} onClick={event => { onNavigate(event, 'documentation'); setDrawer(false); }} aria-current={page === 'documentation' ? 'page' : undefined}><Icon name="book"/><span className="nav-label">Documentation</span></a>
       </nav><div className="sidebar-bottom"><Icon name="shield"/><strong>Your build, briefly here.</strong><p>Temporary processing.<br/>No saved upload history.</p><span>Inspect. Understand. Release.</span></div>
     </aside>
-    <div className="workspace"><header className="workspace-header"><div className="header-location"><button ref={trigger} className="drawer-trigger icon-button" aria-label="Open navigation" aria-expanded={drawer} aria-controls="workspace-sidebar" onClick={() => setDrawer(true)}><Icon name="menu"/></button><span>Workspace</span><Icon name="chevron"/><strong>{page === 'documentation' ? 'Documentation' : summary ? viewTitles[view] : 'Inspect a build'}</strong></div><div className="header-actions"><span className="session-indicator"><span/>Private scan session</span><div className="theme-switch" role="group" aria-label="Appearance"><button aria-label="Light theme" aria-pressed={theme === 'light'} onClick={() => changeTheme('light')}><Icon name="sun"/></button><button aria-label="Dark theme" aria-pressed={theme === 'dark'} onClick={() => changeTheme('dark')}><Icon name="moon"/></button></div></div></header>
+    <div className="workspace"><header className="workspace-header"><div className="header-location"><button ref={trigger} className="drawer-trigger icon-button" aria-label="Open navigation" aria-expanded={drawer} aria-controls="workspace-sidebar" onClick={() => setDrawer(true)}><Icon name="menu"/></button><span>Workspace</span><Icon name="chevron"/><strong>{page === 'documentation' ? 'Documentation' : summary ? titles[view] : 'Inspect a build'}</strong></div><div className="header-actions"><span className="session-indicator"><span/>Private scan session</span><div className="theme-switch" role="group" aria-label="Appearance"><button aria-label="Light theme" aria-pressed={theme === 'light'} onClick={() => changeTheme('light')}><Icon name="sun"/></button><button aria-label="Dark theme" aria-pressed={theme === 'dark'} onClick={() => changeTheme('dark')}><Icon name="moon"/></button></div></div></header>
       <div id="workspace-content" className="workspace-content" tabIndex={-1}>{children}</div>
       <footer className="workspace-footer"><span>{product.name} v{product.version} <span>·</span> Build confidence with evidence.</span><span>Static inspection · Runtime testing still required</span></footer>
     </div>

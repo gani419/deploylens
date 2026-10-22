@@ -6,7 +6,7 @@ import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
 // @ts-expect-error The server is deliberately framework-independent Node ESM.
-import { createWebServer } from '../apps/web/server/index.mjs';
+import { createWebServer } from '../apps/server/src/index.mjs';
 
 let directory: string;
 let servers: ReturnType<typeof createWebServer>[];
@@ -148,5 +148,48 @@ describe('Opt-in local device installer', () => {
     expect(response.status).toBe(503); expect((await response.json()).error).toContain('ADB was not found');
     const oversized = await fetch(base + `/api/devices/install?serial=emulator-5554&sha256=${hash}`, { method: 'POST', headers: headers(base), body: apk });
     expect(oversized.status).toBe(413); await cleaned();
+  });
+});
+
+
+describe('Local iPhone IPA installation', () => {
+  const ipa = Buffer.from('PK signed IPA sample bytes');
+  const hash = createHash('sha256').update(ipa).digest('hex');
+  const udid = '00008030-0012345678901234';
+  const headers = (base: string) => ({ Origin: base, 'X-DeployLens-Device': '1', 'Content-Type': 'application/octet-stream' });
+  it.each([false, true])('selects the Apple USB device and supports legacy installer CLI: %s', async legacy => {
+    const calls: Array<{ tool: string; args: string[] }> = [];
+    const adbRun = async (tool: string, args: string[]) => {
+      calls.push({ tool, args });
+      if (tool.includes('idevice_id')) return { stdout: udid + '\n', stderr: '' };
+      if (args[0] === '--help') return { stdout: legacy ? '-i, --install FILE' : 'install PATH', stderr: '' };
+      expect(await fs.readFile(args.at(-1)!)).toEqual(ipa);
+      return { stdout: 'Install: Complete\n', stderr: '' };
+    };
+    const base = await serve({ localDevices: true, adbRun });
+    const devices = await fetch(base + '/api/devices?platform=ios', { headers: headers(base) });
+    expect((await devices.json()).devices[0].serial).toBe(udid);
+    const response = await fetch(base + `/api/devices/install?platform=ios&serial=${udid}&sha256=${hash}`, { method: 'POST', headers: headers(base), body: ipa });
+    expect(response.status).toBe(200);
+    expect((await response.json()).message).toContain('confirmed completion');
+    expect(calls.at(-1)?.args.slice(0, 3)).toEqual(['-u', udid, legacy ? '-i' : 'install']); await cleaned();
+  });
+  it('does not report completion when signing is rejected or the tool gives no confirmation', async () => {
+    let failure = true;
+    const adbRun = async (tool: string, args: string[]) => {
+      if (tool.includes('idevice_id')) return { stdout: udid, stderr: '' };
+      if (args[0] === '--help') return { stdout: 'install PATH', stderr: '' };
+      return { stdout: failure ? 'ERROR: ApplicationVerificationFailed. Invalid provisioning profile.' : 'Waiting for device', stderr: '' };
+    };
+    const base = await serve({ localDevices: true, adbRun });
+    const send = () => fetch(base + `/api/devices/install?platform=ios&serial=${udid}&sha256=${hash}`, { method: 'POST', headers: headers(base), body: ipa });
+    expect((await send()).status).toBe(400); await cleaned();
+    failure = false; expect((await send()).status).toBe(400); await cleaned();
+  });
+  it('reports missing Apple tools and rejects unknown platforms', async () => {
+    const base = await serve({ localDevices: true, adbRun: async () => { throw Object.assign(new Error('not installed'), { code: 'ENOENT' }); } });
+    const response = await fetch(base + '/api/devices?platform=ios', { headers: headers(base) });
+    expect(response.status).toBe(503); expect((await response.json()).error).toContain('Apple device tools');
+    expect((await fetch(base + '/api/devices?platform=unknown', { headers: headers(base) })).status).toBe(400);
   });
 });

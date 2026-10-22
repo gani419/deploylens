@@ -1,3 +1,4 @@
+import type { PermissionUsageAudit } from './permissionUsage.js';
 export interface PrivacyManifestEntry {
   trackingDomains?: string[];
   collectedDataTypes?: Array<{
@@ -27,6 +28,7 @@ export interface IosSigningInfo {
 }
 
 export interface IosMetadata {
+  permissionUsage?: PermissionUsageAudit;
   platform: 'ios';
   bundleIdentifier: string;
   displayName: string;

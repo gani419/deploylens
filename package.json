@@ -9,18 +9,25 @@
     "pnpm": ">=10.0.0"
   },
   "scripts": {
-    "build": "pnpm -r --filter \"./packages/*\" run build && pnpm -r --filter \"./apps/*\" run build",
+    "build": "pnpm check:boundaries && pnpm -r --filter \"./packages/*\" run build && pnpm -r --filter \"./apps/*\" run build",
     "test": "pnpm -r --filter \"./packages/*\" run build && vitest run",
     "test:coverage": "vitest run --coverage",
     "cli": "pnpm --filter @deploylens/cli run start",
     "desktop": "pnpm --filter @deploylens/desktop run dev",
     "desktop:build": "pnpm --filter @deploylens/desktop run build",
     "lint": "pnpm -r run lint",
-    "web": "pnpm --filter @deploylens/web start",
+    "web": "pnpm --filter @deploylens/server start",
     "web:dev": "pnpm --filter @deploylens/web dev",
-    "web:build": "pnpm -r --filter \"./packages/*\" run build && pnpm --filter @deploylens/web build",
-    "typecheck": "pnpm --filter @deploylens/desktop typecheck && pnpm --filter @deploylens/web typecheck",
-    "test:e2e": "playwright test"
+    "web:build": "pnpm check:boundaries && pnpm -r --filter \"./packages/*\" run build && pnpm --filter @deploylens/web build",
+    "typecheck": "pnpm -r --if-present run typecheck",
+    "test:e2e": "playwright test",
+    "server": "pnpm --filter @deploylens/server start",
+    "check:boundaries": "node scripts/check-client-boundaries.mjs",
+    "mobile": "pnpm -r --filter \"./packages/*\" run build && pnpm --filter @deploylens/mobile start",
+    "mobile:android": "pnpm --filter @deploylens/mobile android",
+    "mobile:ios": "pnpm --filter @deploylens/mobile ios",
+    "mobile:build": "pnpm check:boundaries && pnpm -r --filter \"./packages/*\" run build && pnpm --filter @deploylens/mobile build",
+    "mobile:test": "pnpm --filter @deploylens/mobile test"
   },
   "devDependencies": {
     "@types/node": "22.13.9",

@@ -1,3 +1,4 @@
+import { inspectionLimits, supportedFormats } from '@deploylens/config';
 import http from 'node:http';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
@@ -13,8 +14,8 @@ import { createDeviceService, deviceRequestAllowed } from './devices.mjs';
 const here = path.dirname(fileURLToPath(import.meta.url));
 const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '.css': 'text/css', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.txt': 'text/plain; charset=utf-8' };
 
-export function createWebServer({ maxUploadBytes = 512 * 1024 * 1024, maxConcurrentScans = 2,
-  scanTimeoutMs = 120000, uploadTimeoutMs = 120000, staticDir = path.resolve(here, '../dist'),
+export function createWebServer({ maxUploadBytes = inspectionLimits.maxUploadBytes, maxConcurrentScans = inspectionLimits.maxConcurrentScans,
+  scanTimeoutMs = inspectionLimits.scanTimeoutMs, uploadTimeoutMs = inspectionLimits.uploadTimeoutMs, staticDir = path.resolve(here, '../../web/dist'),
   tempRoot = os.tmpdir(), workerPath = path.join(here, 'worker.mjs'),
   localDevices = process.env.DEPLOYLENS_LOCAL_DEVICES === '1', adbRun } = {}) {
   let active = 0;
@@ -49,18 +50,22 @@ export function createWebServer({ maxUploadBytes = 512 * 1024 * 1024, maxConcurr
     let url;
     try { url = new URL(req.url, 'http://localhost'); } catch { json(400, { error: 'Invalid request' }); return; }
     if (req.method === 'GET' && url.pathname === '/api/health') {
-      json(200, { status: 'ok', maxUploadBytes, acceptedFormats: ['apk', 'aab', 'ipa'], retainsHistory: false }); return;
+      json(200, { status: 'ok', maxUploadBytes, acceptedFormats: supportedFormats, retainsHistory: false }); return;
     }
     if (url.pathname === '/api/devices' || url.pathname === '/api/devices/install') {
       if (!deviceRequestAllowed(req, server, localDevices)) {
         json(403, { error: 'Local device access is disabled. Run DeployLens on this computer with DEPLOYLENS_LOCAL_DEVICES=1, bound to 127.0.0.1, and open its local website.' }); req.resume(); return;
       }
       try {
-        if (req.method === 'GET' && url.pathname === '/api/devices') json(200, { devices: await deviceService.devices() });
+        if (req.method === 'GET' && url.pathname === '/api/devices') {
+          const platform = url.searchParams.get('platform') || 'android';
+          if (!['android', 'ios'].includes(platform)) json(400, { error: 'Unsupported device platform.' });
+          else json(200, { devices: await deviceService.devices(platform) });
+        }
         else if (req.method === 'POST' && url.pathname === '/api/devices/install') json(200, await deviceService.install(req, url));
         else json(405, { error: 'Method not allowed' });
       } catch (error) {
-        json(error.status || 503, { error: error.code === 'ENOENT' ? 'ADB was not found. Install Android SDK Platform-Tools and add adb to PATH or set ANDROID_HOME / ANDROID_SDK_ROOT.' : error.status ? error.message : 'Could not communicate with local ADB. Check Platform-Tools, device authorization and the local ADB server.' });
+        json(error.status || 503, { error: error.code === 'ENOENT' ? url.searchParams.get('platform') === 'ios' ? 'Apple device tools were not found. Install libimobiledevice and ideviceinstaller with their dependencies. Add them to PATH or set DEPLOYLENS_IOS_TOOLS. Windows also needs the Apple USB device driver.' : 'ADB was not found. Install Android SDK Platform-Tools and add adb to PATH or set ANDROID_HOME / ANDROID_SDK_ROOT.' : error.status ? error.message : 'Could not communicate with the local device tool. Check the tool installation, USB connection and device trust/authorization.' });
       }
       req.resume(); return;
     }

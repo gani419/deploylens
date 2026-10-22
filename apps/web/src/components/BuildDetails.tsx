@@ -1,8 +1,9 @@
 import type { ReactNode } from 'react';
 import type { ScanSummary, IosMetadata } from '@deploylens/contracts';
-import { size, yesNo, identity } from './presentation.js';
+import { size, yesNo, identity } from '@deploylens/utils';
 import { StatusBadge } from './StatusBadge.js';
 import { Icon } from './Icon.js';
+import { PermissionUsagePanel } from './PermissionUsagePanel.js';
 
 export function Facts({ rows }: { rows: Array<[string, ReactNode]> }) {
   return <dl className="facts-list">{rows.map(([label, value]) => <div key={label}><dt>{label}</dt><dd>{value ?? 'Not established'}</dd></div>)}</dl>;
@@ -35,7 +36,7 @@ export function BuildDetails({ summary }: { summary: ScanSummary }) {
     : ios ? [['Application payload', ios.archiveSizeBreakdown.payloadAppSizeBytes], ['Embedded frameworks (within payload)', ios.archiveSizeBreakdown.frameworksSizeBytes]] : [];
   const uncompressed = packaging?.uncompressedSizeBytes ?? ios?.archiveSizeBreakdown.uncompressedSizeBytes ?? 0;
   const largeFiles = packaging?.largeFiles ?? ios?.archiveSizeBreakdown.largeFiles ?? [];
-  return <div className="report-view"><div className="section-heading"><div><p className="eyebrow">EXTRACTED FROM THIS ARCHIVE</p><h2>Build details</h2><p>Configuration facts to help you reproduce and resolve findings. Unknown values are not filled with guessed defaults.</p></div></div><div className="detail-grid">
+  return <div className="report-view"><div className="section-heading"><div><p className="eyebrow">EXTRACTED FROM THIS ARCHIVE</p><h2>Build details</h2><p>Configuration facts to help you reproduce and resolve findings. Unknown values are not filled with guessed defaults.</p></div></div><div className="detail-grid masonry-details">
     <DetailCard title="Application identity"><Facts rows={[
       ['App name', app.name], ['Package / bundle identifier', app.identifier], ['Version / build', `${app.version} / ${app.build}`], ['Detected format', `${summary.artifact.platform === 'android' ? 'Android' : 'iOS / iPadOS'} · ${summary.artifact.artifactType.toUpperCase()}`], ['Uploaded filename', summary.artifact.fileName], ['Archive size', size(summary.artifact.sizeBytes)],
       ...(android ? [['App name source', android.appLabelSource ?? 'Not recorded'] as [string, ReactNode]] : []),
@@ -76,7 +77,7 @@ export function IosPrivacyDetails({ metadata }: { metadata: IosMetadata }) {
 export function IosDiagnostics({ summary }: { summary: ScanSummary }) {
   const metadata = summary.metadata.ios;
   if (!metadata) return null;
-  return <div className="report-view"><div className="section-heading"><div><p className="eyebrow">IOS / IPADOS</p><h2>iOS diagnostics</h2><p>Signing, SDK and privacy evidence from the exported IPA. Device behavior and store eligibility still need validation.</p></div></div><div className="detail-grid"><SigningDetails summary={summary}/><DetailCard title="Runtime & toolchain"><Facts rows={[
+  return <div className="report-view"><div className="section-heading"><div><p className="eyebrow">IOS / IPADOS</p><h2>iOS diagnostics</h2><p>Signing, SDK and privacy evidence from the exported IPA. Device behavior and store eligibility still need validation.</p></div></div><PermissionUsagePanel audit={metadata.permissionUsage}/><div className="detail-grid masonry-details"><SigningDetails summary={summary}/><DetailCard title="Runtime & toolchain"><Facts rows={[
     ['Minimum supported OS', metadata.minimumOsVersion || 'Not extracted'], ['Build SDK', metadata.buildSdkMetadata.sdkName || 'Not extracted'], ['Xcode metadata', metadata.buildSdkMetadata.xcodeVersion || 'Not extracted'], ['Architectures', metadata.architectures.join(', ') || 'Not established'], ['Supported devices', metadata.declaredDeviceFamilies.join(', ') || 'Not declared'], ['Runtime tests', 'Not performed'],
   ]}/><p className="field-note">No simulator/device session was run. Installation, permission prompts, crash behavior and iPad layouts are not validated by these declarations.</p></DetailCard><IosPrivacyDetails metadata={metadata}/></div></div>;
 }

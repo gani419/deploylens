@@ -34,15 +34,26 @@ Official sources: [Google Play target API](https://support.google.com/googleplay
 
 ## Architecture
 
+The phased shared-code and React Native roadmap is documented in [Mobile implementation plan](docs/MOBILE_IMPLEMENTATION_PLAN.md). It distinguishes the current runnable web/desktop implementations from unfinished deployment, desktop parity and native release validation.
+
 TypeScript/pnpm monorepo with a Node inspection engine. React 19 and Vite power the web and desktop interfaces. Electron provides the local desktop bridge. Commander powers the CLI. Vitest and Playwright cover regression and browser behavior.
 
-- `apps/web`: responsive upload-first website, Node HTTP upload service, isolated scan worker.
+- `apps/web/src`: browser-specific React UI, CSS, file/clipboard/download adapters and React bindings.
+- `apps/server/src`: shared Node HTTP inspection service, isolated worker and local-only device installation routes.
 - `apps/cli`: local `doctor` and `scan` commands.
 - `apps/desktop`: Electron interface with a sandboxed CommonJS preload bridge.
+- `apps/mobile`: React Native Community CLI application with native Android/iOS projects and service-backed inspection entry points.
 - `packages/core`: scan lifecycle, bounded ZIP parsing, cleanup, assessments.
 - `packages/android`, `packages/ios`: archive and platform inspection.
 - `packages/rules`: versioned checks with official references.
-- `packages/contracts`, `packages/ui`, `packages/store-guidance`: shared types, desktop UI primitives, and deterministic store guidance.
+- `packages/contracts`: portable metadata, event and HTTP service types.
+- `packages/config`: product identity, supported formats, inspection defaults, colors and typography tokens.
+- `packages/utils`: platform-independent identity, formatting and archive validation.
+- `packages/reporting`: build comparison, share text and research descriptions.
+- `packages/store`: framework-independent, in-memory inspection and report/draft state.
+- `packages/api-client`: streaming protocol decoder and platform transport interfaces.
+- `packages/ui-web`: DOM components for web/Electron; not React Native UI.
+- `packages/store-guidance`: deterministic store listing/checklist generation.
 
 Keep platform logic in shared packages. Future VS Code, desktop and mobile clients can wrap the same scan contract. A Linux server can inspect iOS metadata, but cryptographic iOS verification needs a macOS host.
 
@@ -74,11 +85,11 @@ No installer artifacts or public deployment are included. Desktop build and runt
 
 The web app uses a full-width workspace, a persistent desktop sidebar and a keyboard-accessible mobile drawer. Report sections include Release overview, Findings & fixes, All checks, Build details, Android/iOS diagnostics, Store preparation and Manual verification. Findings explain the result, evidence, impact, next steps, verification and scope; the structured guidance is also included in exported JSON.
 
-Appearance uses sage-green light and dark themes, with locally served Manrope headings and DM Sans body/subtitle text. Only `deploylens-theme` is saved in browser storage. Reports and review markers remain in memory. Theme colors, fonts and shared tokens live in `apps/web/src/styles/variables.css`. Layout styles are split into `styles.css`, `workspace.css`, `home.css`, `report.css` and `documentation.css`; UI components contain no inline visual styles. Components and the upload lifecycle hook live separately under `components/` and `hooks/`.
+Appearance uses sage-green light and dark themes, with locally served Manrope headings and DM Sans body/subtitle text. Only `deploylens-theme` is saved in browser storage. Reports and review markers remain in memory. Common colors, font roles and sizes live in `packages/config/src`. The web build generates `apps/web/src/styles/theme-colors.css`; font-face declarations, browser fallbacks, shadows and layout remain in `variables.css` and web styles. Layout styles are split into `styles.css`, `workspace.css`, `home.css`, `report.css` and `documentation.css`; UI components contain no inline visual styles. Components and the upload lifecycle hook live separately under `components/` and `hooks/`.
 
 ### Sharing and optional build comparison
 
-After inspection, **Share report & build** provides an editable subject/message, offline HTML report (printable to PDF), optional original-build download, native file sharing where supported, Gmail/email/WhatsApp text composers, and copy/paste for Google Chat. A downloadable `.eml` includes the HTML report as a genuine attachment for compatible mail clients; the original archive must be attached separately. No email is sent automatically, cloud storage is not used, and there are no public report links. External apps may reject build files or attachments; direct compose links cannot attach local files.
+After inspection, **Share report & build** provides an editable subject/message, offline HTML report (printable to PDF), optional original-build download, native file sharing where supported, a single system Share action, and Copy message with an optional destination selector for mail/chat apps. A downloadable `.eml` includes the HTML report as a genuine attachment for compatible mail clients; the original archive must be attached separately. No email is sent automatically, cloud storage is not used, and there are no public report links. External apps may reject build files or attachments; direct compose links cannot attach local files.
 
 **Compare builds** optionally inspects a previous archive of the same app while retaining the current report. It distinguishes confirmed fixes, newly reported issues, unresolved issues and unconfirmed fixes, with version/size/SDK/permission changes. A missing or skipped finding never counts as fixed. Single-build inspection remains the default. Drafts, selected original files, and both results stay in page memory until reload or a new inspection. Public product name/version are defined in `apps/web/src/product.ts` and shown in the footer.
 
@@ -94,4 +105,35 @@ pnpm web
 
 Open the local website (normally `http://127.0.0.1:3000`), inspect an APK, then use **Install on Android**. Authorize USB debugging or start an emulator, refresh devices, select a target, and confirm installation. Updating an existing app is an explicit opt-in; no uninstall is performed. Temporary installation copies are hash-checked against the inspected archive and removed afterward. This feature is disabled by default and restricted to local server connections and loopback hosts. Do not expose an enabled local device server through a reverse proxy or tunnel.
 
-Hosted websites cannot access a visitor's local ADB devices. AAB conversion/APK-set installation and IPA installation are not included. Installation does not launch the app, run runtime tests or change the assessment. The separate Electron interface does not yet expose this website installation feature.
+Hosted websites cannot access a visitor's local ADB devices. AAB conversion/APK-set installation is not included. Eligible IPA installation is available through local libimobiledevice/ideviceinstaller, including Windows with the Apple USB driver. Add the toolchain to PATH or set DEPLOYLENS_IOS_TOOLS to its directory. Unlock the USB-connected iPhone/iPad and trust the computer. IPAs must already be signed/provisioned for that device; no re-signing or trust bypass is performed. App Store profiles are directed to TestFlight. Both legacy and current installer command formats are supported. Installation does not launch the app, run runtime tests or change the assessment. The separate Electron interface does not yet expose this website installation feature.
+
+
+### Diagnostic and workspace updates
+
+Desktop navigation expands to a wider labeled menu or collapses to an accessible icon rail; mobile retains the drawer. Scrollbars are hidden while scrolling remains available. Build details use independent card columns. Store listing text edits directly in place and remains available across report navigation during the same page session. Comparison uses an archive drop zone instead of the native file control.
+
+Android diagnostics now includes SDK/device compatibility, manifest features, release flags, transport declarations, permission inventories, exported components and package size alongside 16 KB alignment. Both platform diagnostics expose the new API-reference/declaration audit. The engine searches bounded DEX or iOS executable/framework entries (32 files, 64 MB aggregate, 32 MB per file); findings are heuristics and never claim runtime execution or automatic store rejection. Native/Dart/JNI, reflection, dynamic-feature manifests, encrypted/stripped code and iOS app-extension declarations remain outside full coverage. System pickers can avoid broad media permissions. Empty iOS purpose-key inventories no longer imply a successful permission audit.
+
+Actionable findings include Research this issue: an editable Markdown context/reproduction draft, clipboard copy, and links to community and AI tools. Nothing is posted automatically.
+
+
+## React Native mobile shell (Phase 2)
+
+The mobile shell uses **React Native Community CLI** with TypeScript and native Android/iOS projects; it has no Expo dependency or runtime. It includes native navigation, sage-green light/dark/system themes, an honest empty report workspace, and persistent inspection-service settings with a real `/api/health` check. Uploading APK/AAB/IPA files and rendering streamed reports are Phase 3 work.
+
+```sh
+pnpm mobile:build
+pnpm mobile:test
+pnpm mobile
+pnpm mobile:android
+```
+
+The default Android emulator service URL is `http://10.0.2.2:3000`. A physical phone must use a reachable LAN/HTTPS address. Only appearance and service URL preferences are stored on the phone; reports and archives are not retained as mobile history. Android compilation and Pixel 6a emulator launch are verified. The iOS JavaScript bundle is verified on Windows, while CocoaPods/Xcode/device verification requires macOS.
+
+Phase 1 extracted reusable client logic from web without importing browser or Node APIs into mobile-safe packages.
+
+Run `pnpm build`, `pnpm typecheck`, `pnpm check:boundaries`, `pnpm test`, and `pnpm test:e2e` for repository verification. `pnpm web` / `pnpm server` both start the service in `apps/server/src`; `pnpm --filter @deploylens/web start` remains a forwarding convenience. The website still serves at port 3000 by default and Vite proxies `/api` to it during development.
+
+Pure client packages compile without DOM or Node global types. The boundary check rejects imports of the Node inspection engine, DOM UI, or sibling source paths. Each app supplies its own upload, picker, clipboard, export and sharing adapters. Current and baseline inspection stores are separate; report-session state contains review markers and editable drafts, never platform file objects. State is not persisted.
+
+See [Architecture and package boundaries](docs/ARCHITECTURE.md) and [Mobile implementation plan](docs/MOBILE_IMPLEMENTATION_PLAN.md).

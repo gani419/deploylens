@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import type { ScanSummary } from '@deploylens/contracts';
-import { Button, Card, Badge, MetricBox, DisclaimerBanner, FindingCard, StageItem } from '@deploylens/ui';
+import { Button, Card, Badge, MetricBox, DisclaimerBanner, FindingCard, StageItem } from '@deploylens/ui-web';
 
 interface ScreenAssessmentProps {
   summary: ScanSummary;

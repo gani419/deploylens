@@ -1351,3 +1351,12 @@
     font-size: 13px;
   }
 }
+
+/* Each column flows independently, keeping short fact cards close together. */
+.masonry-details { display: block; columns: 2; column-gap: 22px; }
+.masonry-details > .detail-card { display: inline-block; width: 100%; break-inside: avoid; margin: 0 0 22px; vertical-align: top; }
+.listing-editor { width: 100%; resize: vertical; color: var(--text); font: inherit; cursor: text; margin: 0; }
+.listing-editor:focus { outline: 2px solid var(--focus); outline-offset: 3px; background: var(--surface); }
+.listing-preview { display: block; width: 100%; text-align: left; color: var(--text-secondary); font-family: var(--font-content); cursor: text; margin: 0; }
+.listing-preview:hover { border-color: var(--line-strong); }
+@media (max-width: 1100px) { .masonry-details { columns: 1; } }

@@ -1,3 +1,4 @@
+import type { PermissionUsageAudit } from './permissionUsage.js';
 export interface CertificateMetadata {
   subject: string;
   issuer: string;
@@ -63,6 +64,7 @@ export interface AndroidPackagingBreakdown {
 }
 
 export interface AndroidMetadata {
+  permissionUsage?: PermissionUsageAudit;
   platform: 'android';
   packageId: string;
   appLabel?: string;

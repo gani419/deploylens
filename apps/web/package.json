@@ -5,15 +5,19 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 127.0.0.1",
-    "build": "tsc --noEmit && vite build",
-    "start": "node server/index.mjs",
+    "build": "node scripts/generate-theme.mjs && tsc --noEmit && vite build",
+    "start": "pnpm --filter @deploylens/server start",
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@deploylens/core": "workspace:*",
     "@deploylens/contracts": "workspace:*",
     "react": "19.3.0",
-    "react-dom": "19.3.0"
+    "react-dom": "19.3.0",
+    "@deploylens/config": "workspace:*",
+    "@deploylens/utils": "workspace:*",
+    "@deploylens/reporting": "workspace:*",
+    "@deploylens/store": "workspace:*",
+    "@deploylens/api-client": "workspace:*"
   },
   "devDependencies": {
     "@types/react": "19.3.0",

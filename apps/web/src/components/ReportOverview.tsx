@@ -2,7 +2,7 @@ import type { ScanSummary } from '@deploylens/contracts';
 import type { ReportView } from './WorkspaceShell.js';
 import { Icon } from './Icon.js';
 import { StatusBadge } from './StatusBadge.js';
-import { identity, formats, size } from './presentation.js';
+import { identity, formats, size } from '@deploylens/utils';
 export function ReportHeader({ summary, onDownload, onNew, onShare }: { summary: ScanSummary; onDownload: () => void; onNew: () => void; onShare: () => void }) {
   const app = identity(summary);
   return <header className="report-header"><div className="report-heading"><div className="app-monogram">{app.name.slice(0, 2).toUpperCase()}</div><div><p className="eyebrow">BUILD INSPECTION REPORT</p><h1>{app.name}</h1><p>{app.identifier}<span className="metadata-divider">·</span>Version {app.version} ({app.build})</p></div><div className="report-actions"><button className="secondary" onClick={onShare}><Icon name="copy"/>Share report & build</button><button className="secondary" onClick={onNew}><Icon name="upload"/>Inspect another build</button><button className="primary" onClick={onDownload}><Icon name="download"/>Download JSON report</button></div></div><dl className="app-identity"><div><dt>Detected format</dt><dd><span className="format-label">{summary.artifact.artifactType.toUpperCase()}</span>{formats[summary.artifact.artifactType]}</dd></div><div><dt>Uploaded file</dt><dd>{summary.artifact.fileName}<span className="metadata-divider">·</span>{size(summary.artifact.sizeBytes)}</dd></div><div><dt>Inspection</dt><dd>{(summary.elapsedMs / 1000).toFixed(1)} seconds<span className="metadata-divider">·</span>{new Date(summary.completedAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</dd></div></dl></header>;

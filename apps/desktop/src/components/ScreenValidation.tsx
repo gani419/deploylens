@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import type { ArtifactIdentity, ValidationStage } from '@deploylens/contracts';
-import { Button, StageItem } from '@deploylens/ui';
+import { Button, StageItem } from '@deploylens/ui-web';
 
 interface ScreenValidationProps {
   artifact: ArtifactIdentity;

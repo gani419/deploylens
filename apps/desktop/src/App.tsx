@@ -7,7 +7,7 @@ import type {
   UserAppInfo,
   ScanEvent,
 } from '@deploylens/contracts';
-import { Tabs, type TabItem } from '@deploylens/ui';
+import { Tabs, type TabItem } from '@deploylens/ui-web';
 import { ScreenSelect } from './components/ScreenSelect.js';
 import { ScreenValidation } from './components/ScreenValidation.js';
 import { ScreenAssessment } from './components/ScreenAssessment.js';
