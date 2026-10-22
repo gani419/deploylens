@@ -14,8 +14,12 @@ function messageFromResponse(text: string, status: number) {
 
 export function inspectArchive(baseUrl: string, archive: MobileArchive, observer: InspectionObserver) {
   const path = decodeURIComponent(archive.localUri.replace(/^file:\/\//, ''));
-  let status = 0, receivedChunks = false, stopped = false;
-  const decoder = createInspectionDecoder(observer.onEvent);
+  let status = 0, receivedChunks = false, stopped = false, terminal = false;
+  const decoder = createInspectionDecoder(event => {
+    if (stopped || terminal) return;
+    if (['scan.completed', 'scan.error', 'scan.cancelled'].includes(event.type)) terminal = true;
+    observer.onEvent(event);
+  });
   const task = ReactNativeBlobUtil.config({timeout: 260000}).fetch('POST', `${baseUrl}${scanUploadPath(archive.name)}`, {
     'Content-Type': 'application/octet-stream', 'Content-Length': String(archive.size), Accept: 'application/x-ndjson',
   }, ReactNativeBlobUtil.wrap(path)) as StreamingTask;
@@ -31,7 +35,12 @@ export function inspectArchive(baseUrl: string, archive: MobileArchive, observer
     const responseStatus = status || Math.floor(response.info().status);
     const text = String(response.text() ?? '');
     if (responseStatus < 200 || responseStatus >= 300) { observer.onError(messageFromResponse(text, responseStatus)); return; }
-    try { if (!receivedChunks && text) decoder.push(text); decoder.finish(); observer.onComplete(); }
+    try {
+      if (!receivedChunks && text) decoder.push(text);
+      decoder.finish();
+      if (!terminal) { observer.onError('Inspection ended before a verdict was available. Please retry.'); return; }
+      observer.onComplete();
+    }
     catch { observer.onError('The inspection stream ended with malformed or incomplete data.'); }
   }).catch(error => {
     if (!stopped) observer.onError(error instanceof Error && /cancel/i.test(error.message) ? 'Inspection cancelled. No verdict was issued.' : 'The upload or inspection connection was interrupted.');

@@ -1,97 +1,38 @@
-This is a new [**React Native**](https://reactnative.dev) project, bootstrapped using [`@react-native-community/cli`](https://github.com/react-native-community/cli).
+# DeployLens mobile
 
-# Getting Started
+DeployLens mobile is a React Native Community CLI client. It selects one APK, AAB or IPA through the system document provider, uploads a private cache copy to the configured inspection service, streams NDJSON progress, and renders the resulting report. The inspection engine remains on the Node service and is not bundled into the phone application.
 
-> **Note**: Make sure you have completed the [Set Up Your Environment](https://reactnative.dev/docs/set-up-your-environment) guide before proceeding.
+## Requirements
 
-## Step 1: Start Metro
+- Node.js 22 and the repository's pinned pnpm version
+- JDK 17 and an Android SDK for Android builds
+- macOS, Xcode and CocoaPods for iOS native builds
+- A reachable DeployLens inspection service
 
-First, you will need to run **Metro**, the JavaScript build tool for React Native.
+From the repository root:
 
-To start the Metro dev server, run the following command from the root of your React Native project:
-
-```sh
-# Using npm
-npm start
-
-# OR using Yarn
-yarn start
+```powershell
+pnpm.cmd install --frozen-lockfile
+pnpm.cmd mobile:test
+pnpm.cmd mobile:build
+pnpm.cmd --filter @deploylens/mobile android:build
 ```
 
-## Step 2: Build and run your app
+Start the service in one terminal and Metro in another:
 
-With Metro running, open a new terminal window/pane from the root of your React Native project, and use one of the following commands to build and run your Android or iOS app:
-
-### Android
-
-```sh
-# Using npm
-npm run android
-
-# OR using Yarn
-yarn android
+```powershell
+pnpm.cmd server
+pnpm.cmd mobile
 ```
 
-### iOS
+Run Android with `pnpm.cmd mobile:android`. The Android emulator reaches the host service at `http://10.0.2.2:3000`. A physical phone must use the development computer's reachable LAN address or a production HTTPS endpoint; `localhost` refers to the phone itself.
 
-For iOS, remember to install CocoaPods dependencies (this only needs to be run on first clone or after updating native deps).
+On macOS, install pods from `apps/mobile/ios` and run `pnpm mobile:ios`. Use a valid signing team when running on a physical iPhone.
 
-The first time you create a new project, run the Ruby bundler to install CocoaPods itself:
+## Data lifecycle
 
-```sh
-bundle install
-```
+Selected archives are copied to the application cache because provider handles may expire. The copy is removed after completion, failure, cancellation or reset. Startup cleanup removes orphaned APK/AAB/IPA copies left by an interrupted process. Reports and archives are not retained as history; only appearance and inspection-service URL preferences persist.
 
-Then, and every time you update your native dependencies, run:
+## Release gate
 
-```sh
-bundle exec pod install
-```
-
-For more information, please visit [CocoaPods Getting Started guide](https://guides.cocoapods.org/using/getting-started.html).
-
-```sh
-# Using npm
-npm run ios
-
-# OR using Yarn
-yarn ios
-```
-
-If everything is set up correctly, you should see your new app running in the Android Emulator, iOS Simulator, or your connected device.
-
-This is one way to run your app — you can also build it directly from Android Studio or Xcode.
-
-## Step 3: Modify your app
-
-Now that you have successfully run the app, let's make changes!
-
-Open `App.tsx` in your text editor of choice and make some changes. When you save, your app will automatically update and reflect these changes — this is powered by [Fast Refresh](https://reactnative.dev/docs/fast-refresh).
-
-When you want to forcefully reload, for example to reset the state of your app, you can perform a full reload:
-
-- **Android**: Press the <kbd>R</kbd> key twice or select **"Reload"** from the **Dev Menu**, accessed via <kbd>Ctrl</kbd> + <kbd>M</kbd> (Windows/Linux) or <kbd>Cmd ⌘</kbd> + <kbd>M</kbd> (macOS).
-- **iOS**: Press <kbd>R</kbd> in iOS Simulator.
-
-## Congratulations! :tada:
-
-You've successfully run and modified your React Native App. :partying_face:
-
-### Now what?
-
-- If you want to add this new React Native code to an existing application, check out the [Integration guide](https://reactnative.dev/docs/integration-with-existing-apps).
-- If you're curious to learn more about React Native, check out the [docs](https://reactnative.dev/docs/getting-started).
-
-# Troubleshooting
-
-If you're having issues getting the above steps to work, see the [Troubleshooting](https://reactnative.dev/docs/troubleshooting) page.
-
-# Learn More
-
-To learn more about React Native, take a look at the following resources:
-
-- [React Native Website](https://reactnative.dev) - learn more about React Native.
-- [Getting Started](https://reactnative.dev/docs/environment-setup) - an **overview** of React Native and how setup your environment.
-- [Learn the Basics](https://reactnative.dev/docs/getting-started) - a **guided tour** of the React Native **basics**.
-- [Blog](https://reactnative.dev/blog) - read the latest official React Native **Blog** posts.
-- [`@facebook/react-native`](https://github.com/facebook/react-native) - the Open Source; GitHub **repository** for React Native.
+The JavaScript bundles, Android native build and Android emulator APK inspection flow are verified. Before calling Phase 3 release-qualified, complete the physical-device and iOS matrix in [`../../docs/PHASE_1_3_AUDIT.md`](../../docs/PHASE_1_3_AUDIT.md).

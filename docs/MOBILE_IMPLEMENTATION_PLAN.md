@@ -1,6 +1,6 @@
 # Shared architecture and React Native implementation plan
 
-Status: Phases 1 through 3 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Phase 3 release validation is complete for an APK on an Android emulator, while representative AAB/IPA archives and physical Android/iOS devices remain release-matrix work.
+Status: Phases 1 through 3 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Phase 4 is gated until the physical-device, macOS/iOS and hosted HTTPS checks in [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) are complete.
 
 ## Current readiness
 
@@ -172,7 +172,7 @@ Exit criteria:
 
 ## Implementation order
 
-Phases 1 through 3 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client now provides real file selection, upload, streamed scan state and native result screens. Phase 4 adds native collaboration and comparison. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on the web implementation.
+Phases 1 through 3 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client now provides real file selection, upload, streamed scan state and native result screens. Phase 4 adds native collaboration and comparison, but must not start until the release-validation gate in [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) is signed off. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on the web implementation.
 
 Official references:
 
