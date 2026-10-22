@@ -11,3 +11,4 @@ Thumbs.db
 .env.local
 test-results/
 playwright-report/
+.firebase/
