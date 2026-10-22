@@ -16,12 +16,12 @@ export function inspectArchive(baseUrl: string, archive: MobileArchive, observer
   const path = decodeURIComponent(archive.localUri.replace(/^file:\/\//, ''));
   let status = 0, receivedChunks = false, stopped = false;
   const decoder = createInspectionDecoder(observer.onEvent);
-  const task = ReactNativeBlobUtil.config({increment: true, timeout: 260000}).fetch('POST', `${baseUrl}${scanUploadPath(archive.name)}`, {
+  const task = ReactNativeBlobUtil.config({timeout: 260000}).fetch('POST', `${baseUrl}${scanUploadPath(archive.name)}`, {
     'Content-Type': 'application/octet-stream', 'Content-Length': String(archive.size), Accept: 'application/x-ndjson',
   }, ReactNativeBlobUtil.wrap(path)) as StreamingTask;
   task.stateChange(state => { if (state.state === '2') status = Math.floor(state.status); });
   task.uploadProgress({interval: 150}, (sent, total) => { if (!stopped) observer.onProgress(total > 0 ? sent / total * 100 : 0); });
-  task.progress({interval: 80}, (_received, _total, chunk) => {
+  task.progress({interval: 80}, (_received: number, _total: number, chunk?: string) => {
     if (stopped || status < 200 || status >= 300 || !chunk) return;
     receivedChunks = true;
     try { decoder.push(chunk); } catch { stopped = true; task.cancel(); observer.onError('The inspection service returned an invalid event stream.'); }

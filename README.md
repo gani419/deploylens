@@ -117,9 +117,9 @@ Android diagnostics now includes SDK/device compatibility, manifest features, re
 Actionable findings include Research this issue: an editable Markdown context/reproduction draft, clipboard copy, and links to community and AI tools. Nothing is posted automatically.
 
 
-## React Native mobile shell (Phase 2)
+## React Native mobile inspection (Phase 3)
 
-The mobile shell uses **React Native Community CLI** with TypeScript and native Android/iOS projects; it has no Expo dependency or runtime. It includes native navigation, sage-green light/dark/system themes, an honest empty report workspace, and persistent inspection-service settings with a real `/api/health` check. Uploading APK/AAB/IPA files and rendering streamed reports are Phase 3 work.
+The mobile app uses **React Native Community CLI** with TypeScript and native Android/iOS projects; it has no Expo dependency or runtime. It includes native navigation, sage-green light/dark/system themes, persistent inspection-service settings, native APK/AAB/IPA selection, file-path streaming with progress/cancellation, and native report sections for findings, checks, build details, platform diagnostics and manual verification.
 
 ```sh
 pnpm mobile:build
@@ -128,7 +128,7 @@ pnpm mobile
 pnpm mobile:android
 ```
 
-The default Android emulator service URL is `http://10.0.2.2:3000`. A physical phone must use a reachable LAN/HTTPS address. Only appearance and service URL preferences are stored on the phone; reports and archives are not retained as mobile history. Android compilation and Pixel 6a emulator launch are verified. The iOS JavaScript bundle is verified on Windows, while CocoaPods/Xcode/device verification requires macOS.
+The default Android emulator service URL is `http://10.0.2.2:3000`. A physical phone must use a reachable LAN/HTTPS address. Only appearance and service URL preferences are stored on the phone; reports and archives are not retained as mobile history. Android compilation and a complete APK picker/upload/report flow on a Pixel 6a emulator are verified. The iOS JavaScript bundle is verified on Windows, while CocoaPods/Xcode/device verification requires macOS. Representative AAB/IPA picker runs, physical devices and a production HTTPS service remain release-validation work.
 
 Phase 1 extracted reusable client logic from web without importing browser or Node APIs into mobile-safe packages.
 

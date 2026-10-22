@@ -1,12 +1,12 @@
 # Shared architecture and React Native implementation plan
 
-Status: Phases 1 and 2 are implemented. Phase 2 uses React Native Community CLI; there is no Expo dependency or runtime. Phase 3 is the next mobile phase.
+Status: Phases 1 through 3 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Phase 3 release validation is complete for an APK on an Android emulator, while representative AAB/IPA archives and physical Android/iOS devices remain release-matrix work.
 
 ## Current readiness
 
 - Web: current requested workflows are implemented, with build/type checks, automated unit/server and browser regressions; current Phase 1 evidence is recorded in docs/ARCHITECTURE.md. This is a testing-ready implementation, not a completed public production deployment. Representative signed builds, real Android/iPhone installation, macOS codesign validation, hosting, quotas and abuse controls still need release validation.
 - Desktop: an Electron app with local scanning and a sandboxed preload bridge exists. Its interface is separate from the newer web workspace and does not yet have complete sharing/comparison/diagnostic UI parity. Windows/macOS installer packaging, signing and macOS notarization are unfinished. Bridge smoke coverage is not full desktop release qualification.
-- Mobile: the React Native shell, native Android/iOS projects, navigation, themes, service settings and honest report empty states are present. File picking, upload, streamed inspection results and report rendering begin in Phase 3. The shared engine uses Node filesystem/process APIs and external tools and remains behind the inspection service.
+- Mobile: the React Native app selects APK/AAB/IPA files through the native document provider, streams them to the inspection service, and renders the report sections. The shared engine uses Node filesystem/process APIs and external tools and remains behind the inspection service.
 
 ## Target ownership
 
@@ -130,6 +130,15 @@ Exit criteria:
 - Android emulator networking and a physical phone connection are tested; the device must reach the configured server. `localhost` on a phone is the phone, not the developer PC.
 - Production uses an appropriate HTTPS service. Development LAN/emulator exceptions must not weaken production transport settings.
 
+Implementation evidence (October 22, 2026):
+
+- Native document selection validates filename, supported format and the service-advertised size limit before upload. A private cache copy gives the streaming transport a stable path; completed, failed and cancelled sessions remove that copy, and app startup removes orphaned archive copies left by an interrupted process.
+- Native file-path streaming preserves the existing raw-binary `/api/scans` protocol without loading a complete archive into JavaScript memory. Upload progress, incremental NDJSON events, cancellation, timeout, non-2xx responses, invalid event streams and connection failures have explicit states.
+- The report workspace renders the extracted app identity and archive type, release overview, findings with evidence/remediation/verification/scope, all checks, build details, Android or iOS diagnostics, and manual verification work. It labels static/heuristic evidence and does not claim runtime or store approval.
+- Android x86_64 native compilation and autolinking pass with the document picker and streaming transport. The merged manifest explicitly removes unused storage, Wi-Fi and download permissions contributed by the transport dependency; file access stays with Android's document provider.
+- A Pixel 6a/API 33 emulator connected to a service on the host through `10.0.2.2`. The app selected and inspected `fixtures/android/valid-app.apk`, displayed the streamed `SampleApp` report and all six report destinations, removed the phone cache copy, and left no server `deploylens-upload-*` directory.
+- TypeScript, mobile preference tests, shared-package boundary checks, Android/iOS production JavaScript bundles and Android `assembleDebug` pass. AAB and IPA protocol fixtures are covered by the service test suite, but their complete native-picker flows, physical-phone networking, iOS Xcode build/device run and production HTTPS deployment still require the target hardware and hosting environment. These are release-validation limits rather than simulated evidence.
+
 ## Phase 4 — Mobile collaboration and report parity
 
 Scope:
@@ -163,7 +172,7 @@ Exit criteria:
 
 ## Implementation order
 
-Phases 1 and 2 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS shell now sits on those boundaries. Phase 3 is next: real file selection, upload, streamed scan state and native result screens. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on the web implementation.
+Phases 1 through 3 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client now provides real file selection, upload, streamed scan state and native result screens. Phase 4 adds native collaboration and comparison. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on the web implementation.
 
 Official references:
 

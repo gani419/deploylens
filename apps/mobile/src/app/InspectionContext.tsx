@@ -2,7 +2,7 @@ import React, {createContext, useContext, useEffect, useMemo, useRef, useState, 
 import {createInspectionStore} from '@deploylens/store';
 import {useApp} from './AppContext';
 import {inspectArchive} from '../adapters/inspectionTransport';
-import {pickBuild, removeCachedBuild, type MobileArchive} from '../adapters/documentPicker';
+import {pickBuild, removeCachedBuild, removeOrphanedBuildCopies, type MobileArchive} from '../adapters/documentPicker';
 
 type InspectionContextValue = ReturnType<typeof useInspectionState>;
 const InspectionContext = createContext<InspectionContextValue | null>(null);
@@ -14,6 +14,7 @@ function useInspectionState() {
   const [archive, setArchive] = useState<MobileArchive | null>(null);
   const request = useRef<{cancel(): void} | null>(null);
   const generation = useRef(0);
+  useEffect(() => { void removeOrphanedBuildCopies(); }, []);
   useEffect(() => { if (connection.health) store.setLimit(connection.health.maxUploadBytes); }, [connection.health, store]);
   useEffect(() => () => { generation.current++; request.current?.cancel(); void removeCachedBuild(archive); }, [archive]);
   const choose = async () => {

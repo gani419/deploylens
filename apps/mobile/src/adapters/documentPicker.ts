@@ -26,3 +26,18 @@ export async function removeCachedBuild(archive: MobileArchive | null) {
   const path = decodeURIComponent(archive.localUri.replace(/^file:\/\//, ''));
   try { if (await ReactNativeBlobUtil.fs.exists(path)) await ReactNativeBlobUtil.fs.unlink(path); } catch { /* cache cleanup is best-effort */ }
 }
+
+export async function removeOrphanedBuildCopies() {
+  const cache = ReactNativeBlobUtil.fs.dirs.CacheDir;
+  try {
+    for (const entry of await ReactNativeBlobUtil.fs.ls(cache)) {
+      const directory = `${cache}/${entry}`;
+      let children: string[];
+      try { children = await ReactNativeBlobUtil.fs.ls(directory); } catch { continue; }
+      const builds = children.filter(name => /\.(apk|aab|ipa)$/i.test(name));
+      if (!builds.length) continue;
+      for (const build of builds) await ReactNativeBlobUtil.fs.unlink(`${directory}/${build}`);
+      try { await ReactNativeBlobUtil.fs.unlink(directory); } catch { /* an empty provider directory may remain */ }
+    }
+  } catch { /* interrupted-session cleanup is best-effort */ }
+}

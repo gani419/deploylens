@@ -249,6 +249,9 @@ importers:
 
   apps/mobile:
     dependencies:
+      '@deploylens/api-client':
+        specifier: workspace:*
+        version: link:../../packages/api-client
       '@deploylens/config':
         specifier: workspace:*
         version: link:../../packages/config
