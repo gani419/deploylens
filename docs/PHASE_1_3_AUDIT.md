@@ -2,7 +2,7 @@
 
 Audit date: October 22, 2026
 
-Phase 4 is gated on the Phase 3 release-validation rows below. Passing compilation or fixture tests does not replace physical-device evidence.
+The owner authorized Phase 4 implementation on October 22, 2026 while the Phase 3 release-validation rows below remain open. This changes implementation sequencing only. Passing compilation or fixture tests does not replace physical-device evidence or release signoff. See [Phase 4 progress](PHASE_4_PROGRESS.md).
 
 ## Phase 1 — shared foundations
 
@@ -51,7 +51,7 @@ These are validation tasks, not missing application code:
 - Deploy the Node inspection service behind HTTPS with its JDK/Android tools, upload/time limits, writable temporary volume, memory/process quotas and edge rate limiting. Firebase currently hosts only the static web client.
 - Record large representative archive memory/time results. The synthetic fixtures exercise parsing and protocol behavior but are not store-submittable release builds.
 
-`adb devices -l` returned no connected devices during this audit. Windows cannot supply the Xcode/macOS evidence. Phase 4 must remain unstarted until the owner supplies those environments and the rows above are recorded as passed.
+`adb devices -l` returned no connected devices during this audit. Windows cannot supply the Xcode/macOS evidence. Release qualification remains blocked until the owner supplies those environments and the rows above are recorded as passed. Phase 4 implementation was subsequently authorized; none of these validation rows is considered passed.
 
 ## Current automated evidence
 

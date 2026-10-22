@@ -5,6 +5,7 @@ import type {ArtifactType} from '@deploylens/contracts';
 
 export type MobileArchive = {name: string; size: number; type: ArtifactType; localUri: string};
 
+let copySequence = 0;
 export async function pickBuild(limit: number): Promise<MobileArchive | null> {
   try {
     const [selected] = await pick({type: [types.allFiles], allowMultiSelection: false, mode: 'import'});
@@ -12,7 +13,7 @@ export async function pickBuild(limit: number): Promise<MobileArchive | null> {
     const validation = validateArchive({name: selected.name, size: selected.size}, limit);
     if (validation) throw new Error(validation);
     if (selected.isVirtual) throw new Error('Virtual documents cannot be inspected. Download the original APK, AAB, or IPA file first.');
-    const [copy] = await keepLocalCopy({destination: 'cachesDirectory', files: [{uri: selected.uri, fileName: selected.name}]});
+    const [copy] = await keepLocalCopy({destination: 'cachesDirectory', files: [{uri: selected.uri, fileName: `deploylens-build-${Date.now()}-${++copySequence}.${archiveType(selected.name)}`}]});
     if (copy.status !== 'success') throw new Error(`The build could not be copied into the app cache: ${copy.copyError}`);
     return {name: selected.name, size: selected.size, type: archiveType(selected.name)!, localUri: copy.localUri};
   } catch (error) {
@@ -34,10 +35,10 @@ export async function removeOrphanedBuildCopies() {
       const directory = `${cache}/${entry}`;
       let children: string[];
       try { children = await ReactNativeBlobUtil.fs.ls(directory); } catch { continue; }
-      const builds = children.filter(name => /\.(apk|aab|ipa)$/i.test(name));
+      const builds = children.filter(name => /^deploylens-build-\d+-\d+\.(apk|aab|ipa)$/i.test(name));
       if (!builds.length) continue;
       for (const build of builds) await ReactNativeBlobUtil.fs.unlink(`${directory}/${build}`);
-      try { await ReactNativeBlobUtil.fs.unlink(directory); } catch { /* an empty provider directory may remain */ }
+      try { if (builds.length === children.length) await ReactNativeBlobUtil.fs.unlink(directory); } catch { /* an empty provider directory may remain */ }
     }
   } catch { /* interrupted-session cleanup is best-effort */ }
 }

@@ -20,17 +20,18 @@ export function HomeScreen({navigation}: {navigation: BottomTabNavigationProp<Ro
     <View style={[styles.heroIcon, {backgroundColor: palette['primary-soft']}]}><Icon name="shield" color={palette.primary} size={34}/></View>
     <Eyebrow>Mobile release inspection</Eyebrow>
     <Title>Check a build before it reaches the store.</Title>
-    <Body muted>Select one APK, AAB or IPA. The temporary phone copy is removed when the inspection ends.</Body>
+    <Body muted>Select one APK, AAB or IPA. The temporary phone copy remains available for sharing until you clear the report or remove the build. Interrupted-session copies are cleaned up on the next launch.</Body>
     <Card>
       <View style={styles.statusRow}><View style={[styles.dot, {backgroundColor: connected ? palette.success : palette.warning}]}/><Text style={[styles.status, {color: palette.text}]}>{connected ? 'Inspection service ready' : 'Service setup required'}</Text></View>
       <Body muted>{connection.message ?? 'Connect this app to a running DeployLens service before selecting a build.'}</Body>
-      {!connected && <Button label="Set up inspection service" onPress={() => navigation.navigate('Settings')}/>} 
+      {!connected && <Button label="Set up inspection service" onPress={() => navigation.navigate('Settings')}/>}
     </Card>
     <Card>
       <View style={styles.uploadHeading}><Icon name="upload" color={palette.primary}/><View style={styles.grow}><Text style={[styles.status,{color:palette.text}]}>Build archive</Text><Body muted>Single-build inspection is the default.</Body></View></View>
       {inspection.archive ? <View style={[styles.file,{backgroundColor:palette['surface-muted']}]}><View style={[styles.format,{backgroundColor:palette.primary}]}><Text style={[styles.formatText,{color:palette['on-primary']}]}>{inspection.archive.type.toUpperCase()}</Text></View><View style={styles.grow}><Text numberOfLines={1} style={[styles.fileName,{color:palette.text}]}>{inspection.archive.name}</Text><Text style={[styles.fileMeta,{color:palette['text-muted']}]}>Uploaded type: {inspection.archive.type.toUpperCase()} · {size(inspection.archive.size)}</Text></View></View> : <Body muted>No build selected. Files outside APK, AAB and IPA are rejected before upload.</Body>}
-      <Button secondary label={inspection.archive ? 'Choose another build' : 'Choose build'} onPress={() => void inspection.choose()}/>
-      {inspection.archive && <Button label="Start inspection" onPress={run}/>} 
+      <Button busy={inspection.busy||inspection.choosing||inspection.baseline.busy} secondary label={inspection.archive ? 'Choose another build' : 'Choose build'} onPress={() => void inspection.choose()}/>
+      {inspection.archive && !inspection.summary && <Button busy={inspection.busy||inspection.choosing} label="Start inspection" onPress={run}/>}
+      {inspection.summary && <Button label="View current report" onPress={() => navigation.navigate('Reports')}/>}
       {!!inspection.error && <Text style={[styles.error,{color:palette.danger}]}>{inspection.error}</Text>}
     </Card>
     <View style={styles.metrics}>{['APK', 'AAB', 'IPA'].map(format => <View key={format} style={[styles.metric, {backgroundColor: palette['surface-muted']}]}><Text style={[styles.metricText, {color: palette.text}]}>{format}</Text><Text style={[styles.metricLabel, {color: palette['text-muted']}]}>supported</Text></View>)}</View>

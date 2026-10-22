@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { Finding, ScanSummary } from '@deploylens/contracts';
 import { compareBuilds } from '@deploylens/reporting';
-import { defaultMessage } from '@deploylens/reporting';
+import { renderReportHtml, defaultMessage } from '@deploylens/reporting';
 import { emailDraft, reportFile } from '../apps/web/src/components/reportExport.js';
 
 function finding(outcome: Finding['outcome'], patch: Partial<Finding> = {}): Finding {
@@ -33,6 +33,11 @@ describe('Build comparison evidence', () => {
   });
 });
 describe('Shareable reports', () => {
+  it('gives native recipients attachment instructions appropriate to a share handoff', () => {
+    const message = defaultMessage(summary([]), 'native');
+    expect(message).toContain('Confirm the receiving app includes it');
+    expect(message).not.toContain('attach the downloaded report');
+  });
   it('escapes archive-supplied HTML, includes fixes, and generates an offline report', async () => {
     const data = summary([finding('fail', { evidence: '<img src=x onerror=alert(1)>' })]);
     data.metadata.android!.appLabel = '<script>alert(1)</script>';
@@ -46,5 +51,17 @@ describe('Shareable reports', () => {
     const text = await draft.text(); expect(text).toContain('Content-Disposition: attachment;'); expect(text).toContain('multipart/mixed'); expect(text).not.toContain('\r\nBcc:');
     const encoded = text.split('Content-Transfer-Encoding: base64\r\n\r\n')[2]!.split('\r\n--')[0]!;
     expect(Buffer.from(encoded.replace(/\r\n/g, ''), 'base64').toString()).toContain('Café');
+  });
+});
+
+describe('Portable readable report export', () => {
+  it('uses the same report content across web and native and escapes session drafts', async () => {
+    const data = summary([finding('fail')]);
+    const html = renderReportHtml(data, {reviewed: ['Runtime <script>'], listingDrafts: {Description: '<img src=x onerror=alert(1)>'}});
+    expect(html).toContain('Session review markers'); expect(html).toContain('Edited listing drafts');
+    expect(html).toContain('&lt;img'); expect(html).not.toContain('<img'); expect(html).not.toContain('<script>');
+    expect(html).toContain('do not change the automated verdict');
+    const web = await reportFile(data).text();
+    expect(web.slice(web.indexOf('<dl>'))).toBe(renderReportHtml(data).slice(renderReportHtml(data).indexOf('<dl>')));
   });
 });

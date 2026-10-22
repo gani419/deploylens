@@ -1,6 +1,6 @@
 # Shared architecture and React Native implementation plan
 
-Status: Phases 1 through 3 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Phase 4 is gated until the physical-device, macOS/iOS and hosted HTTPS checks in [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) are complete.
+Status: Phases 1 through 3 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Phase 4 implementation is in progress at the owner's request; physical-device, macOS/iOS and hosted HTTPS checks in the [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) remain open and still gate release qualification.
 
 ## Current readiness
 
@@ -141,6 +141,8 @@ Implementation evidence (October 22, 2026):
 
 ## Phase 4 — Mobile collaboration and report parity
 
+Status: implementation in progress, authorized by the owner on October 22, 2026 while the Phase 3 external release matrix remains open. See [Phase 4 progress](PHASE_4_PROGRESS.md) for implementation and validation evidence.
+
 Scope:
 
 - Native share sheet with editable context and optional original build; explain unsupported file types/receivers.
@@ -172,7 +174,7 @@ Exit criteria:
 
 ## Implementation order
 
-Phases 1 through 3 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client now provides real file selection, upload, streamed scan state and native result screens. Phase 4 adds native collaboration and comparison, but must not start until the release-validation gate in [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) is signed off. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on the web implementation.
+Phases 1 through 3 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client now provides real file selection, upload, streamed scan state and native result screens. The owner authorized Phase 4 implementation before the external validation gate was signed off. Phase 4 adds native collaboration and comparison; the outstanding [Phase 1–3 release-validation matrix](PHASE_1_3_AUDIT.md) still blocks release qualification. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on the web implementation.
 
 Official references:
 

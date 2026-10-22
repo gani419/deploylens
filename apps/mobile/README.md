@@ -31,7 +31,17 @@ On macOS, install pods from `apps/mobile/ios` and run `pnpm mobile:ios`. Use a v
 
 ## Data lifecycle
 
-Selected archives are copied to the application cache because provider handles may expire. The copy is removed after completion, failure, cancellation or reset. Startup cleanup removes orphaned APK/AAB/IPA copies left by an interrupted process. Reports and archives are not retained as history; only appearance and inspection-service URL preferences persist.
+Selected archives are copied to the application cache because provider handles may expire. The current successful build remains in temporary cache for optional sharing until the report is reset, another build is chosen, or Remove cached original build is used. Failed/cancelled inspections and previous-build comparisons remove their copies when they end. Startup cleanup removes owned orphaned archive copies left by an interrupted process. Reports and archives are not retained as history; only appearance and inspection-service URL preferences persist.
+
+## Collaboration and comparison (Phase 4)
+
+Reports include native sharing with an editable subject/message and an optional original archive. Choose readable HTML or structured JSON and save/share through an available OS target. HTML includes edited listing drafts and manual-review markers without changing the automated verdict. Clipboard actions provide message, listing and research text. Receiver file limits and support vary; verify delivery in the chosen app.
+
+Listing drafts save as you type. Drafts, review markers and comparison reports live in the inspection provider, survive screen navigation, and reset with the current report. Previous-build inspection has separate progress, cancellation and errors. Shared comparison rules reject unrelated apps and require explicit passing evidence at the same rule revision to confirm a fix.
+
+Native share attachments use owned temporary export directories. Cancelled/failed exports are deleted immediately. Successful handoffs remain readable until the next app launch because a recipient can read files after the share sheet resolves. An optional build attachment is copied natively into that directory so clearing the current inspection cannot invalidate an ongoing handoff. No export is uploaded automatically or saved as report history. Copies explicitly saved by the recipient are controlled by that recipient.
+
+See [Phase 4 progress](../../docs/PHASE_4_PROGRESS.md) for verification and open device checks.
 
 ## Release gate
 

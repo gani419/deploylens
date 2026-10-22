@@ -117,7 +117,7 @@ Android diagnostics now includes SDK/device compatibility, manifest features, re
 Actionable findings include Research this issue: an editable Markdown context/reproduction draft, clipboard copy, and links to community and AI tools. Nothing is posted automatically.
 
 
-## React Native mobile inspection (Phase 3)
+## React Native mobile inspection (Phases 3 and 4)
 
 The mobile app uses **React Native Community CLI** with TypeScript and native Android/iOS projects; it has no Expo dependency or runtime. It includes native navigation, sage-green light/dark/system themes, persistent inspection-service settings, native APK/AAB/IPA selection, file-path streaming with progress/cancellation, and native report sections for findings, checks, build details, platform diagnostics and manual verification.
 
@@ -129,6 +129,8 @@ pnpm mobile:android
 ```
 
 The default Android emulator service URL is `http://10.0.2.2:3000`. A physical phone must use a reachable LAN/HTTPS address. Only appearance and service URL preferences are stored on the phone; reports and archives are not retained as mobile history. Android compilation and a complete APK picker/upload/report flow on a Pixel 6a emulator are verified. The iOS JavaScript bundle is verified on Windows, while CocoaPods/Xcode/device verification requires macOS. Representative AAB/IPA picker runs, physical devices and a production HTTPS service remain release-validation work.
+
+Phase 4 adds native sharing with editable context, readable HTML/JSON exports and optional original archives; editable store drafts, manual-review markers, and an isolated previous-build comparison. Successful original builds remain in temporary cache until removed or the report is cleared; cancelled/failed scans and comparisons clean their copies immediately. Shared attachments remain available to the receiving app until next-launch cleanup. Drafts, markers and reports remain in memory. Physical Android/iOS sharing and lifecycle qualification remain pending; see [Phase 4 progress](docs/PHASE_4_PROGRESS.md).
 
 Phase 1 extracted reusable client logic from web without importing browser or Node APIs into mobile-safe packages.
 

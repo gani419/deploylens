@@ -64,6 +64,7 @@ export interface ReportSessionState {
 export function createReportSessionStore(scanId: string | null) {
   const store = createStore<ReportSessionState>({ scanId, reviewed: [], listingDrafts: {}, sharingDraft: null });
   return { ...store,
+    reset(nextScanId: string | null) { store.update(() => ({ scanId: nextScanId, reviewed: [], listingDrafts: {}, sharingDraft: null })); },
     setReviewed(update: (previous: string[]) => string[]) { store.update(state => ({ ...state, reviewed: [...new Set(update(state.reviewed))] })); },
     setListingDraft(key: string, value: string) { store.update(state => ({ ...state, listingDrafts: { ...state.listingDrafts, [key]: value } })); },
     setSharingDraft(update: SharingDraft) { store.update(state => ({ ...state, sharingDraft: update })); },
