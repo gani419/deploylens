@@ -159,6 +159,8 @@ Exit criteria:
 
 ## Phase 5 — Desktop parity and release qualification
 
+Status: desktop implementation complete on Windows. Signing, cross-platform builds and real-device qualification remain release-environment gates recorded in [Phase 5 progress](PHASE_5_PROGRESS.md).
+
 Scope:
 
 - Bring the desktop renderer to agreed web feature parity using shared models/state, keeping Electron IPC and local files behind desktop adapters.
@@ -174,7 +176,7 @@ Exit criteria:
 
 ## Implementation order
 
-Phases 1 through 4 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client provides real file selection, streamed inspection, native result screens, sharing/export, editable session work and optional build comparison. The owner waived physical Android-device testing as a Phase 4 implementation gate; the outstanding [Phase 1–3 release-validation matrix](PHASE_1_3_AUDIT.md) still blocks release qualification. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on compilation alone.
+Phases 1 through 4 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client provides real file selection, streamed inspection, native result screens, sharing/export, editable session work and optional build comparison. The owner waived physical Android-device testing as a Phase 4 implementation gate; the outstanding [Phase 1–3 release-validation matrix](PHASE_1_3_AUDIT.md) still blocks release qualification. Desktop feature parity and a branded Windows installer/ZIP are implemented. Windows signing, macOS notarization, Linux packaging and real-device qualification remain external release gates rather than code tasks that can be completed on this Windows workspace alone.
 
 Official references:
 

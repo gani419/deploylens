@@ -175,5 +175,10 @@ export function createWebServer({ maxUploadBytes = inspectionLimits.maxUploadByt
 if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {
   const server = createWebServer();
   server.listen(Number(process.env.PORT ?? 3000), process.env.HOST ?? '127.0.0.1', () => console.log('DeployLens website listening on port ' + (process.env.PORT ?? 3000)));
-  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => { server.close(); server.closeAllConnections(); });
+  for (const signal of ['SIGINT', 'SIGTERM']) process.once(signal, () => {
+    const forceExit = setTimeout(() => process.exit(0), 1000);
+    forceExit.unref();
+    server.close(() => process.exit(0));
+    server.closeAllConnections();
+  });
 }

@@ -15,6 +15,7 @@
     "cli": "pnpm --filter @deploylens/cli run start",
     "desktop": "pnpm --filter @deploylens/desktop run dev",
     "desktop:build": "pnpm --filter @deploylens/desktop run build",
+    "desktop:verify": "pnpm --filter @deploylens/desktop run build && node scripts/verify-desktop-source.mjs",
     "lint": "pnpm -r run lint",
     "web": "pnpm --filter @deploylens/server start",
     "web:dev": "pnpm --filter @deploylens/web dev",

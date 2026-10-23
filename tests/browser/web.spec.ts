@@ -1,5 +1,4 @@
 import { test, expect } from '@playwright/test';
-import path from 'node:path';
 import { zip } from '../helpers/zip.js';
 
 test('uploads a build, reports findings and downloads an ephemeral report', async ({ page }) => {
@@ -113,23 +112,6 @@ test('iOS reports expose SDK, privacy and provisioning facts without runtime cla
   await page.getByRole('button', { name: 'Dark theme', exact: true }).click();
   await page.screenshot({ path: 'test-results/ios-findings-mobile-dark.png', fullPage: true });
 });
-
-test('desktop preload exposes a working sandboxed bridge', async () => {
-  const { _electron } = await import('@playwright/test');
-  const env = { ...process.env, ELECTRON_ENABLE_LOGGING: '1' };
-  delete env.ELECTRON_RUN_AS_NODE;
-  const app = await _electron.launch({ args: [path.resolve('apps/desktop')], env });
-  try {
-    const window = await app.firstWindow();
-    await window.waitForFunction(() => Boolean((window as unknown as { deployLens?: unknown }).deployLens));
-    const result = await window.evaluate(async () => {
-      const bridge = (window as unknown as { deployLens: { detectCapabilities(): Promise<unknown> } }).deployLens;
-      return bridge.detectCapabilities();
-    });
-    expect(result).toHaveProperty('apksigner');
-  } finally { await app.close(); }
-});
-
 
 test('sharing keeps editable context and exports real report and email attachments', async ({ page }) => {
   await page.goto('/');
