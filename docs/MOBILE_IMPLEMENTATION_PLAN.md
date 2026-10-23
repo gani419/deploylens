@@ -1,6 +1,6 @@
 # Shared architecture and React Native implementation plan
 
-Status: Phases 1 through 3 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Phase 4 implementation is in progress at the owner's request; physical-device, macOS/iOS and hosted HTTPS checks in the [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) remain open and still gate release qualification.
+Status: Phases 1 through 4 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Physical-device, macOS/iOS and hosted HTTPS checks in the [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) remain open and still gate release qualification.
 
 ## Current readiness
 
@@ -132,7 +132,7 @@ Exit criteria:
 
 Implementation evidence (October 22, 2026):
 
-- Native document selection validates filename, supported format and the service-advertised size limit before upload. A private cache copy gives the streaming transport a stable path; completed, failed and cancelled sessions remove that copy, and app startup removes orphaned archive copies left by an interrupted process.
+- Native document selection validates filename, supported format and the service-advertised size limit before upload. A private cache copy gives the streaming transport a stable path. Failed and cancelled sessions remove it immediately; a successful current build remains available for optional sharing until the report is reset or the user removes it. Comparisons remove their copies after completion, and startup removes orphaned DeployLens-owned copies left by an interrupted process.
 - Native file-path streaming preserves the existing raw-binary `/api/scans` protocol without loading a complete archive into JavaScript memory. Upload progress, incremental NDJSON events, cancellation, timeout, non-2xx responses, invalid event streams and connection failures have explicit states.
 - The report workspace renders the extracted app identity and archive type, release overview, findings with evidence/remediation/verification/scope, all checks, build details, Android or iOS diagnostics, and manual verification work. It labels static/heuristic evidence and does not claim runtime or store approval.
 - Android x86_64 native compilation and autolinking pass with the document picker and streaming transport. The merged manifest explicitly removes unused storage, Wi-Fi and download permissions contributed by the transport dependency; file access stays with Android's document provider.
@@ -141,7 +141,7 @@ Implementation evidence (October 22, 2026):
 
 ## Phase 4 — Mobile collaboration and report parity
 
-Status: implementation in progress, authorized by the owner on October 22, 2026 while the Phase 3 external release matrix remains open. See [Phase 4 progress](PHASE_4_PROGRESS.md) for implementation and validation evidence.
+Status: implementation complete under the owner's instruction to waive physical Android-device testing. Physical Android/iOS sharing and lifecycle checks remain release qualification rather than Phase 4 implementation gates. See [Phase 4 progress](PHASE_4_PROGRESS.md) for evidence and remaining release checks.
 
 Scope:
 
@@ -174,7 +174,7 @@ Exit criteria:
 
 ## Implementation order
 
-Phases 1 through 3 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client now provides real file selection, upload, streamed scan state and native result screens. The owner authorized Phase 4 implementation before the external validation gate was signed off. Phase 4 adds native collaboration and comparison; the outstanding [Phase 1–3 release-validation matrix](PHASE_1_3_AUDIT.md) still blocks release qualification. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on the web implementation.
+Phases 1 through 4 are implemented. Reusable packages are consumed by the existing apps, and the native Android/iOS client provides real file selection, streamed inspection, native result screens, sharing/export, editable session work and optional build comparison. The owner waived physical Android-device testing as a Phase 4 implementation gate; the outstanding [Phase 1–3 release-validation matrix](PHASE_1_3_AUDIT.md) still blocks release qualification. Desktop feature parity, installers/signing and cross-platform release qualification remain Phase 5 rather than being marked complete based on compilation alone.
 
 Official references:
 

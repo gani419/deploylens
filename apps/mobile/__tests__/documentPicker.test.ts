@@ -31,6 +31,12 @@ test('startup cleanup preserves unrelated files and directories in the cache', a
   expect(fs.unlink).toHaveBeenCalledTimes(1);
   expect(fs.unlink).toHaveBeenCalledWith('/cache/provider/deploylens-build-123-1.apk');
 });
+test('startup cleanup removes an owned build copied directly into the cache root', async () => {
+  (fs.ls as jest.Mock).mockImplementation(async (path: string) => path === '/cache' ? ['deploylens-build-123-1.aab', 'unrelated.ipa'] : []);
+  await removeOrphanedBuildCopies();
+  expect(fs.unlink).toHaveBeenCalledTimes(1);
+  expect(fs.unlink).toHaveBeenCalledWith('/cache/deploylens-build-123-1.aab');
+});
 test('removes only the selected cached copy and decodes its provider URI', async () => {
   await removeCachedBuild({name: 'release build.apk', size: 100, type: 'apk', localUri: 'file:///cache/release%20build.apk'});
   expect(fs.unlink).toHaveBeenCalledWith('/cache/release build.apk');

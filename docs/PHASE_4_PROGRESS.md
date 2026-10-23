@@ -2,7 +2,7 @@
 
 Started: October 22, 2026, by explicit owner instruction.
 
-Status: implementation in place; Phase 4 remains in progress pending physical Android/iOS sharing and lifecycle qualification, including iOS native build validation. The Phase 3 external release matrix is still open; starting Phase 4 does not sign off that matrix or establish production readiness.
+Status: implementation complete under the owner's instruction on October 23, 2026 to waive physical Android-device testing for this phase. Physical Android/iOS sharing and lifecycle qualification, including iOS native build validation, remain release checks and are not claimed as passed. The Phase 3 external release matrix is still open, so this status does not establish production readiness.
 
 ## Implemented scope
 
@@ -19,8 +19,8 @@ Status: implementation in place; Phase 4 remains in progress pending physical An
 
 - Full workspace build passed: shared packages, CLI, server, web, Electron and Android/iOS production Metro bundles. Final mobile type checks and both bundles were also rebuilt after the last sharing-message/editor adjustments.
 - Shared client boundary checks passed; the portable HTML renderer contains no DOM, Node or native dependencies.
-- Complete Vitest regression suite passed: 20 files, 121 passed and one AAPT2/platform-fixture-dependent skip. Command: `node node_modules/vitest/vitest.mjs run --testTimeout 60000`, outside the Windows sandbox so JDK fixture generation can run. Earlier constrained runs hit JDK key-generation/test timeouts; the complete rerun passed without changing assertions.
-- Mobile Jest suite passed: four suites, 18 tests. Coverage includes native share options and cancellation/failure cleanup, preserved handoff files, original-attachment validation, owned cache cleanup, document selection, transport errors and preferences.
+- Complete Vitest regression suite passed: 20 files and 122 tests.
+- Mobile Jest suite passed: four suites and 19 tests. Coverage includes native share options and cancellation/failure cleanup, preserved handoff files, original-attachment validation, root/nested owned-cache cleanup, document selection, transport errors and preferences.
 - All 16 browser/Electron checks passed across the initial run and targeted reruns. The initial sandbox run passed 13 and hit three timeouts. The sharing/export and Electron bridge reruns passed with desktop process access and a 90-second test timeout; the AAB upload check passed with a temporary 20-second assertion wait. Functional assertions were unchanged. The normal checked-in Playwright configuration remains unchanged.
 - Session regression checks cover independent current/baseline requests, late picker responses, reset/cancellation cleanup, retained originals, removal without losing the report, draft/marker reset and picker-error preservation. Portable export checks verify web/mobile content parity and HTML escaping of archive data and edited drafts.
 - Android x86_64 native APK packaging passed: `assembleDebug` completed successfully. Artifact: `apps/mobile/android/app/build/outputs/apk/debug/app-debug.apk`. The all-ABI attempt was intentionally stopped to reduce resource use, then resumed as `gradlew.bat assembleDebug -PreactNativeArchitectures=x86_64 --max-workers=2`. Clipboard/share modules autolink and compile. The merged debug manifest includes the file-sharing providers without external-storage permissions. This is a debug x86_64 artifact; no all-ABI, signed-release or device-run pass is claimed for this phase.

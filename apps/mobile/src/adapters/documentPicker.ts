@@ -30,12 +30,17 @@ export async function removeCachedBuild(archive: MobileArchive | null) {
 
 export async function removeOrphanedBuildCopies() {
   const cache = ReactNativeBlobUtil.fs.dirs.CacheDir;
+  const ownedBuild = /^deploylens-build-\d+-\d+\.(apk|aab|ipa)$/i;
   try {
     for (const entry of await ReactNativeBlobUtil.fs.ls(cache)) {
+      if (ownedBuild.test(entry)) {
+        await ReactNativeBlobUtil.fs.unlink(`${cache}/${entry}`);
+        continue;
+      }
       const directory = `${cache}/${entry}`;
       let children: string[];
       try { children = await ReactNativeBlobUtil.fs.ls(directory); } catch { continue; }
-      const builds = children.filter(name => /^deploylens-build-\d+-\d+\.(apk|aab|ipa)$/i.test(name));
+      const builds = children.filter(name => ownedBuild.test(name));
       if (!builds.length) continue;
       for (const build of builds) await ReactNativeBlobUtil.fs.unlink(`${directory}/${build}`);
       try { if (builds.length === children.length) await ReactNativeBlobUtil.fs.unlink(directory); } catch { /* an empty provider directory may remain */ }
