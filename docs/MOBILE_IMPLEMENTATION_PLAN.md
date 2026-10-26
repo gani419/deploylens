@@ -1,11 +1,11 @@
 # Shared architecture and React Native implementation plan
 
-Status: Phases 1 through 4 are implemented. The app uses React Native Community CLI; there is no Expo dependency or runtime. Physical-device, macOS/iOS and hosted HTTPS checks in the [Phase 1–3 completion audit](PHASE_1_3_AUDIT.md) remain open and still gate release qualification.
+Status: Phases 1 through 5 are implemented at code level. The app uses React Native Community CLI; there is no Expo dependency or runtime. Mobile is now an optional add-on and does not gate the web and desktop release. Physical-device and mobile store qualification can resume after the web service and Windows/macOS/Linux desktop distributions are released.
 
 ## Current readiness
 
 - Web: current requested workflows are implemented, with build/type checks, automated unit/server and browser regressions; current Phase 1 evidence is recorded in docs/ARCHITECTURE.md. This is a testing-ready implementation, not a completed public production deployment. Representative signed builds, real Android/iPhone installation, macOS codesign validation, hosting, quotas and abuse controls still need release validation.
-- Desktop: an Electron app with local scanning and a sandboxed preload bridge exists. Its interface is separate from the newer web workspace and does not yet have complete sharing/comparison/diagnostic UI parity. Windows/macOS installer packaging, signing and macOS notarization are unfinished. Bridge smoke coverage is not full desktop release qualification.
+- Desktop: Electron embeds the shared web workspace and a loopback-only local inspection/device service. Branded Windows NSIS/ZIP packaging and automated source/packaged inspection checks exist. Signing, macOS notarization, Linux builds and release-machine qualification remain external gates.
 - Mobile: the React Native app selects APK/AAB/IPA files through the native document provider, streams them to the inspection service, and renders the report sections. The shared engine uses Node filesystem/process APIs and external tools and remains behind the inspection service.
 
 ## Target ownership
@@ -30,8 +30,8 @@ DeployLens/
         theme/            # Native styles derived from shared tokens
       assets/             # Mobile-only assets
     desktop/
-      electron/           # Electron main process and preload
-      src/                # Desktop renderer and platform adapters
+      electron/           # Sandboxed Electron main process
+      scripts/            # Icon generation and package qualification
     server/
       src/                # Shared inspection HTTP service, workers, local-device routes
     cli/
@@ -163,7 +163,7 @@ Status: desktop implementation complete on Windows. Signing, cross-platform buil
 
 Scope:
 
-- Bring the desktop renderer to agreed web feature parity using shared models/state, keeping Electron IPC and local files behind desktop adapters.
+- Keep desktop report behavior in parity by packaging the shared web workspace with the loopback-only local service.
 - Validate real APK and eligible IPA installation with installed device tools, actual USB drivers, trusted devices and suitable signing/provisioning. A hosted/mobile client must not be offered server-local device access as if it controlled the visitor's USB devices.
 - Finish Windows/macOS installers, signing/notarization and upgrade behavior.
 - Validate Android/iOS mobile builds, accessibility, native sharing, large-file memory use, flaky networks and lifecycle/background behavior.

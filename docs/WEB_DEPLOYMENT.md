@@ -44,18 +44,28 @@ Policy is a reviewed snapshot, not a live console integration. Google Play devic
 
 ## Container example
 
-The repository Dockerfile builds only shared packages and the website. Its Linux runtime includes a JDK for AAB verification; APK tools must be added/configured separately. iOS cryptographic verification remains unavailable in this Linux image. The Docker image has not been built in this Windows review environment.
+The repository Dockerfile builds the shared packages, website and inspection service. Its Linux runtime installs a JDK, Android Command-Line Tools and pinned Android Build-Tools so `jarsigner`, `keytool`, `apksigner`, `zipalign`, `apkanalyzer` and `readelf` can be detected. The command-line-tools download is checked against the SHA-256 value published by Android Developers. iOS cryptographic verification remains unavailable in this Linux image. The Docker image still needs to be built and scanned in CI before its first deployment.
 
 ```sh
 docker build -t deploylens .
 docker run --rm -p 127.0.0.1:3000:3000 --memory=4g --cpus=2 --pids-limit=128 --read-only --tmpfs /tmp:size=2g,mode=1777 deploylens
 ```
 
-For the initial local review, use the Node commands above. Installer signing/notarization, distributed workers, database history, and public infrastructure are subsequent delivery work.
+For the initial local review, use the Node commands above. Installer signing/notarization, distributed workers and database history are separate delivery work.
+
+## Cloud Run and Firebase
+
+The manual `Deploy web service` GitHub workflow builds the Dockerfile through Google Cloud and deploys a `deploylens` Cloud Run service in `asia-east1`. Configure the GitHub `production` environment, the `GCP_PROJECT_ID` repository variable, and the `GCP_WORKLOAD_IDENTITY_PROVIDER` and `GCP_SERVICE_ACCOUNT` secrets. Workload Identity Federation avoids storing a long-lived Google service-account key in GitHub.
+
+The workflow enables Cloud Run end-to-end HTTP/2 and sets `DEPLOYLENS_HTTP2=1`. This is required because Cloud Run limits an HTTP/1 request body to 32 MiB; the Node service otherwise supports uploads up to 512 MiB. The server has a tested cleartext HTTP/2 mode for Cloud Run's container connection. Run large-file qualification against the deployed URL before advertising the configured maximum.
+
+Firebase Hosting is optional. `firebase.json` routes `/api/**` to the `deploylens` Cloud Run service and serves the versioned frontend assets from Firebase. Firebase Hosting dynamic rewrites have a 60-second request timeout, shorter than the service's two-minute inspection timeout. Use the direct Cloud Run URL or another reverse proxy with the documented timeout and streaming support when an inspection can exceed 60 seconds. Firebase static Hosting without the API rewrite is not a working DeployLens deployment.
+
+The workflow is manual and uses a protected GitHub environment so deployment remains an explicit action. It does not create billing, IAM, Workload Identity, budget alerts, a custom domain or DNS records. Those cloud-account operations must be completed before the first run.
 
 ## Report identity, documentation and Android diagnostics
 
-`/documentation` is a directly addressable user guide; the Node server serves the app entry point for this route. In-page navigation preserves the current report in memory. The report identity card separates the display name, identifier, version/build, uploaded filename and the archive format detected from contents. Mismatched extensions and unsupported/ambiguous archive structures are rejected.
+`/documentation` is a directly addressable user guide and `/privacy` contains the product privacy policy; the Node server serves the app entry point for both routes. In-page navigation preserves the current report in memory. The report identity card separates the display name, identifier, version/build, uploaded filename and the archive format detected from contents. Mismatched extensions and unsupported/ambiguous archive structures are rejected.
 
 Android labels are resolved from AAB `base/resources.pb` and common APK `resources.arsc` string/alias entries. If a label cannot be resolved (including unsupported resource encodings), the report uses the identifier instead of inventing a project name. The test suite also compiles real APK/protobuf resource tables with AAPT2 when Android SDK build-tools and API 36 are available.
 

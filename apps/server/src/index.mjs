@@ -1,5 +1,6 @@
 import { inspectionLimits, supportedFormats } from '@deploylens/config';
 import http from 'node:http';
+import * as http2 from 'node:http2';
 import fs from 'node:fs';
 import { promises as fsp } from 'node:fs';
 import path from 'node:path';
@@ -17,7 +18,7 @@ const types = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript', '
 export function createWebServer({ maxUploadBytes = inspectionLimits.maxUploadBytes, maxConcurrentScans = inspectionLimits.maxConcurrentScans,
   scanTimeoutMs = inspectionLimits.scanTimeoutMs, uploadTimeoutMs = inspectionLimits.uploadTimeoutMs, staticDir = path.resolve(here, '../../web/dist'),
   tempRoot = os.tmpdir(), workerPath = path.join(here, 'worker.mjs'),
-  localDevices = process.env.DEPLOYLENS_LOCAL_DEVICES === '1', adbRun } = {}) {
+  localDevices = process.env.DEPLOYLENS_LOCAL_DEVICES === '1', useHttp2 = process.env.DEPLOYLENS_HTTP2 === '1', adbRun } = {}) {
   let active = 0;
   const jobs = new Set();
   const deviceService = createDeviceService({ tempRoot, maxUploadBytes, run: adbRun });
@@ -37,10 +38,13 @@ export function createWebServer({ maxUploadBytes = inspectionLimits.maxUploadByt
   };
   void sweep();
   const sweepTimer = setInterval(() => void sweep(), 300000); sweepTimer.unref();
-  const server = http.createServer(async (req, res) => {
+  const transport = useHttp2 ? http2 : http;
+  const server = transport.createServer(async (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
     res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
     res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('Permissions-Policy', 'camera=(), microphone=(), geolocation=(), payment=(), usb=()');
     res.setHeader('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'self'");
     const json = (status, body) => {
       if (res.destroyed || res.writableEnded) return;
@@ -74,7 +78,7 @@ export function createWebServer({ maxUploadBytes = inspectionLimits.maxUploadByt
       if (req.headers['sec-fetch-site'] === 'cross-site') { json(403, { error: 'Use the upload form on this website' }); req.resume(); return; }
       const origin = req.headers.origin;
       if (origin) {
-        try { if (new URL(origin).host !== req.headers.host) throw new Error(); }
+        try { if (new URL(origin).host !== (req.headers.host ?? req.headers[':authority'])) throw new Error(); }
         catch { json(403, { error: 'Cross-origin uploads are not allowed' }); req.resume(); return; }
       }
       const fileName = url.searchParams.get('filename') ?? '';
@@ -157,7 +161,7 @@ export function createWebServer({ maxUploadBytes = inspectionLimits.maxUploadByt
     if (req.method !== 'GET' && req.method !== 'HEAD') { json(405, { error: 'Method not allowed' }); return; }
     let relative;
     try { relative = decodeURIComponent(url.pathname); } catch { json(400, { error: 'Invalid URL' }); return; }
-    const target = path.resolve(staticDir, '.' + (relative === '/' || relative === '/documentation' ? '/index.html' : relative));
+    const target = path.resolve(staticDir, '.' + (relative === '/' || relative === '/documentation' || relative === '/privacy' ? '/index.html' : relative));
     if (!target.startsWith(path.resolve(staticDir) + path.sep)) { json(404, { error: 'Not found' }); return; }
     try {
       const stat = await fsp.stat(target);
@@ -179,6 +183,6 @@ if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.me
     const forceExit = setTimeout(() => process.exit(0), 1000);
     forceExit.unref();
     server.close(() => process.exit(0));
-    server.closeAllConnections();
+    if (typeof server.closeAllConnections === 'function') server.closeAllConnections();
   });
 }

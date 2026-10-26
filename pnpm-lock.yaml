@@ -203,30 +203,9 @@ importers:
       '@deploylens/config':
         specifier: workspace:*
         version: link:../../packages/config
-      '@deploylens/contracts':
-        specifier: workspace:*
-        version: link:../../packages/contracts
-      '@deploylens/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@deploylens/ui-web':
-        specifier: workspace:*
-        version: link:../../packages/ui-web
-      '@deploylens/utils':
-        specifier: workspace:*
-        version: link:../../packages/utils
       '@resvg/resvg-js':
         specifier: ^2.6.2
         version: 2.6.2
-      '@types/react':
-        specifier: 19.3.0
-        version: 19.3.0
-      '@types/react-dom':
-        specifier: 19.3.0
-        version: 19.3.0(@types/react@19.3.0)
-      '@vitejs/plugin-react':
-        specifier: 4.3.4
-        version: 4.3.4(supports-color@8.1.1)(vite@6.2.0(@types/node@22.13.9)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       electron:
         specifier: 34.3.0
         version: 34.3.0(supports-color@8.1.1)
@@ -236,21 +215,12 @@ importers:
       esbuild:
         specifier: 0.25.12
         version: 0.25.12
-      react:
-        specifier: 19.3.0
-        version: 19.3.0
-      react-dom:
-        specifier: 19.3.0
-        version: 19.3.0(react@19.3.0)
       rimraf:
         specifier: 6.0.1
         version: 6.0.1
       typescript:
         specifier: 5.8.2
         version: 5.8.2
-      vite:
-        specifier: 6.2.0
-        version: 6.2.0(@types/node@22.13.9)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
 
   apps/mobile:
     dependencies:
@@ -420,13 +390,13 @@ importers:
         version: 19.3.0(@types/react@19.3.0)
       '@vitejs/plugin-react':
         specifier: 4.3.4
-        version: 4.3.4(supports-color@8.1.1)(vite@6.2.0(@types/node@22.13.9)(terser@5.51.2)(yaml@2.9.1))
+        version: 4.3.4(supports-color@8.1.1)(vite@6.2.0(@types/node@22.13.9)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1))
       typescript:
         specifier: 5.8.2
         version: 5.8.2
       vite:
         specifier: 6.2.0
-        version: 6.2.0(@types/node@22.13.9)(terser@5.51.2)(yaml@2.9.1)
+        version: 6.2.0(@types/node@22.13.9)(jiti@2.7.0)(terser@5.51.2)(yaml@2.9.1)
 
   packages/android:
     dependencies:
@@ -7656,17 +7626,6 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@vitejs/plugin-react@4.3.4(supports-color@8.1.1)(vite@6.2.0(@types/node@22.13.9)(terser@5.51.2)(yaml@2.9.1))':
-    dependencies:
-      '@babel/core': 7.29.7(supports-color@8.1.1)
-      '@babel/plugin-transform-react-jsx-self': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@babel/plugin-transform-react-jsx-source': 7.29.7(@babel/core@7.29.7(supports-color@8.1.1))
-      '@types/babel__core': 7.20.5
-      react-refresh: 0.14.2
-      vite: 6.2.0(@types/node@22.13.9)(terser@5.51.2)(yaml@2.9.1)
-    transitivePeerDependencies:
-      - supports-color
-
   '@vitest/expect@3.0.7':
     dependencies:
       '@vitest/spy': 3.0.7
@@ -11412,17 +11371,6 @@ snapshots:
       '@types/node': 22.13.9
       fsevents: 2.3.3
       jiti: 2.7.0
-      terser: 5.51.2
-      yaml: 2.9.1
-
-  vite@6.2.0(@types/node@22.13.9)(terser@5.51.2)(yaml@2.9.1):
-    dependencies:
-      esbuild: 0.25.12
-      postcss: 8.5.28
-      rollup: 4.64.0
-    optionalDependencies:
-      '@types/node': 22.13.9
-      fsevents: 2.3.3
       terser: 5.51.2
       yaml: 2.9.1
 

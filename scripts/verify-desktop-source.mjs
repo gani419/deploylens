@@ -1,5 +1,4 @@
 import { _electron } from '@playwright/test';
-import assert from 'node:assert/strict';
 import path from 'node:path';
 import { execFileSync } from 'node:child_process';
 
@@ -19,10 +18,6 @@ try {
     env,
   });
   const window = await application.firstWindow();
-  await window.waitForFunction(() => Boolean(window.deployLens));
-  const capabilities = await window.evaluate(() => window.deployLens.detectCapabilities());
-  assert.ok(Object.hasOwn(capabilities, 'apksigner'), 'Preload bridge did not return desktop capabilities.');
-
   await window.locator('#build-file').setInputFiles(path.resolve('fixtures/android/valid-app.apk'));
   await window.getByRole('button', { name: 'Inspect build', exact: true }).click();
   await window.getByRole('heading', { name: 'SampleApp', exact: true }).waitFor({ timeout: 20000 });
@@ -36,7 +31,21 @@ try {
   const child = application?.process();
   if (child?.pid && child.exitCode === null) {
     if (process.platform === 'win32') {
-      try { execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' }); } catch {}
+      try {
+        execFileSync('taskkill', ['/pid', String(child.pid), '/T', '/F'], { windowsHide: true, stdio: 'ignore' });
+      } catch {
+        // Some managed Windows hosts deny taskkill tree traversal. Limit the
+        // fallback to Electron binaries launched from this repository.
+        execFileSync('powershell.exe', [
+          '-NoProfile',
+          '-Command',
+          '$root=$env:DEPLOYLENS_VERIFY_ROOT; Get-Process electron -ErrorAction SilentlyContinue | Where-Object { $_.Path -like ($root + "\\*") } | Stop-Process -Force',
+        ], {
+          windowsHide: true,
+          stdio: 'ignore',
+          env: { ...process.env, DEPLOYLENS_VERIFY_ROOT: path.resolve('.') },
+        });
+      }
     } else {
       child.kill('SIGKILL');
     }

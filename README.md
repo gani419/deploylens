@@ -4,6 +4,10 @@ Inspect your app. Prepare your release.
 
 DeployLens is a website-first mobile build inspection tool. Upload an Android APK/AAB or iOS IPA on the home page to inspect release configuration, signatures, SDK requirements, native libraries and privacy declarations. Results show evidence, remediation, checks that could not run, and store preparation guidance.
 
+DeployLens has no accounts, advertising, analytics or saved upload history. Hosted builds are processed in temporary server workspaces; desktop inspection stays on the local computer. See the [privacy policy](PRIVACY.md).
+
+Product questions and reproducible issues can be reported through [DeployLens support](SUPPORT.md). Do not attach private builds or unredacted reports to public issues.
+
 **Status: internal alpha.** Static inspection cannot certify production readiness or guarantee store approval. The scanner does not install or launch the uploaded app.
 
 ## Run the website
@@ -34,14 +38,16 @@ Official sources: [Google Play target API](https://support.google.com/googleplay
 
 ## Architecture
 
-The phased shared-code and React Native roadmap is documented in [Mobile implementation plan](docs/MOBILE_IMPLEMENTATION_PLAN.md). It distinguishes the current runnable web/desktop implementations from unfinished deployment, desktop parity and native release validation.
+The current product priorities and release gates are documented in the [Web and desktop release plan](docs/WEB_DESKTOP_RELEASE_PLAN.md). The earlier shared-code and React Native work remains documented in the [Mobile implementation plan](docs/MOBILE_IMPLEMENTATION_PLAN.md), but mobile does not gate the web and desktop release.
 
-TypeScript/pnpm monorepo with a Node inspection engine. React 19 and Vite power the web and desktop interfaces. Electron provides the local desktop bridge. Commander powers the CLI. Vitest and Playwright cover regression and browser behavior.
+Cross-platform packaging, code-signing requirements and GitHub Release publication are documented in the [Desktop release procedure](docs/DESKTOP_RELEASE.md).
+
+TypeScript/pnpm monorepo with a Node inspection engine. React 19 and Vite power the shared web workspace; Electron packages that workspace with a loopback-only local inspection service. Commander powers the CLI. Vitest and Playwright cover regression and browser behavior.
 
 - `apps/web/src`: browser-specific React UI, CSS, file/clipboard/download adapters and React bindings.
 - `apps/server/src`: shared Node HTTP inspection service, isolated worker and local-only device installation routes.
 - `apps/cli`: local `doctor` and `scan` commands.
-- `apps/desktop`: Electron interface with a sandboxed CommonJS preload bridge.
+- `apps/desktop`: sandboxed Electron shell, branded installers and the packaged web/local-service workspace.
 - `apps/mobile`: React Native Community CLI application with native Android/iOS projects and service-backed inspection entry points.
 - `packages/core`: scan lifecycle, bounded ZIP parsing, cleanup, assessments.
 - `packages/android`, `packages/ios`: archive and platform inspection.
@@ -77,9 +83,9 @@ pnpm typecheck
 pnpm test:e2e
 ```
 
-Browser tests use installed Google Chrome and verify upload, results, report download, corrupt input, mobile layout, and the Electron bridge. The real JDK signing regression uses disposable test keys and skips if a JDK is unavailable. Windows timeout/cancellation tests must be allowed to terminate their own child process trees.
+Browser tests use installed Google Chrome and verify upload, results, report download, corrupt input and mobile layout. `pnpm desktop:verify` separately verifies the Electron shell and a real local inspection. The real JDK signing regression uses disposable test keys and skips if a JDK is unavailable. Windows timeout/cancellation tests must be allowed to terminate their own child process trees.
 
-No installer artifacts or public deployment are included. Desktop build and runtime are tested separately from OS installer signing/notarization.
+Local Windows NSIS and ZIP artifacts can be built with `pnpm --filter @deploylens/desktop package:win`. Public releases still require platform signing/notarization and release-machine qualification.
 
 ## Web workspace and report presentation
 
@@ -105,7 +111,7 @@ pnpm web
 
 Open the local website (normally `http://127.0.0.1:3000`), inspect an APK, then use **Install on Android**. Authorize USB debugging or start an emulator, refresh devices, select a target, and confirm installation. Updating an existing app is an explicit opt-in; no uninstall is performed. Temporary installation copies are hash-checked against the inspected archive and removed afterward. This feature is disabled by default and restricted to local server connections and loopback hosts. Do not expose an enabled local device server through a reverse proxy or tunnel.
 
-Hosted websites cannot access a visitor's local ADB devices. AAB conversion/APK-set installation is not included. Eligible IPA installation is available through local libimobiledevice/ideviceinstaller, including Windows with the Apple USB driver. Add the toolchain to PATH or set DEPLOYLENS_IOS_TOOLS to its directory. Unlock the USB-connected iPhone/iPad and trust the computer. IPAs must already be signed/provisioned for that device; no re-signing or trust bypass is performed. App Store profiles are directed to TestFlight. Both legacy and current installer command formats are supported. Installation does not launch the app, run runtime tests or change the assessment. The separate Electron interface does not yet expose this website installation feature.
+Hosted websites cannot access a visitor's local ADB devices. AAB conversion/APK-set installation is not included. The desktop application exposes the local installation workflow when the required platform tools are installed. Eligible IPA installation is available through local libimobiledevice/ideviceinstaller, including Windows with the Apple USB driver. Add the toolchain to PATH or set DEPLOYLENS_IOS_TOOLS to its directory. Unlock the USB-connected iPhone/iPad and trust the computer. IPAs must already be signed/provisioned for that device; no re-signing or trust bypass is performed. App Store profiles are directed to TestFlight. Both legacy and current installer command formats are supported. Installation does not launch the app, run runtime tests or change the assessment.
 
 
 ### Diagnostic and workspace updates

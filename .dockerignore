@@ -5,7 +5,13 @@
 test-results
 playwright-report
 coverage
+.firebase
+apps/desktop/release
+apps/mobile/android/.gradle
+apps/mobile/android/app/build
+apps/mobile/ios/Pods
 .env*
 .aws
 .codex
 .agents
+gha-creds-*.json

@@ -1,0 +1,129 @@
+name: Desktop release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: Existing version tag to publish when publishing is enabled
+        required: false
+        type: string
+      publish:
+        description: Publish artifacts to GitHub Releases
+        required: true
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+jobs:
+  package:
+    name: Package ${{ matrix.label }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: windows-latest
+            label: Windows x64
+            script: package:win
+            artifact: deploylens-windows-x64
+            paths: |
+              apps/desktop/release/*.exe
+              apps/desktop/release/*.zip
+          - os: macos-latest
+            label: macOS x64 and arm64
+            script: package:mac:all
+            artifact: deploylens-macos
+            paths: |
+              apps/desktop/release/*.dmg
+              apps/desktop/release/*.zip
+          - os: ubuntu-latest
+            label: Linux x64
+            script: package:linux
+            artifact: deploylens-linux-x64
+            paths: |
+              apps/desktop/release/*.AppImage
+              apps/desktop/release/*.tar.gz
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref }}
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.9.1
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Verify release tag matches the desktop version
+        if: github.event_name == 'push' || inputs.publish
+        shell: bash
+        env:
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+        run: |
+          test -n "$RELEASE_TAG" || { echo "A release tag is required."; exit 1; }
+          DESKTOP_VERSION="$(node -p "require('./apps/desktop/package.json').version")"
+          test "$RELEASE_TAG" = "v$DESKTOP_VERSION" || { echo "Tag $RELEASE_TAG must match desktop version v$DESKTOP_VERSION."; exit 1; }
+      - name: Require signing credentials for public releases
+        if: github.event_name == 'push' || inputs.publish
+        shell: bash
+        env:
+          RUNNER_OS_NAME: ${{ runner.os }}
+          WINDOWS_CSC_LINK: ${{ secrets.WINDOWS_CSC_LINK }}
+          WINDOWS_CSC_KEY_PASSWORD: ${{ secrets.WINDOWS_CSC_KEY_PASSWORD }}
+          MAC_CSC_LINK: ${{ secrets.MAC_CSC_LINK }}
+          MAC_CSC_KEY_PASSWORD: ${{ secrets.MAC_CSC_KEY_PASSWORD }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ "$RUNNER_OS_NAME" = "Windows" ]; then
+            test -n "$WINDOWS_CSC_LINK" && test -n "$WINDOWS_CSC_KEY_PASSWORD" || { echo "Windows signing secrets are required."; exit 1; }
+          fi
+          if [ "$RUNNER_OS_NAME" = "macOS" ]; then
+            test -n "$MAC_CSC_LINK" && test -n "$MAC_CSC_KEY_PASSWORD" && test -n "$APPLE_ID" && test -n "$APPLE_APP_SPECIFIC_PASSWORD" && test -n "$APPLE_TEAM_ID" || { echo "macOS signing and notarization secrets are required."; exit 1; }
+          fi
+      - name: Build packages
+        run: pnpm --filter @deploylens/desktop run ${{ matrix.script }}
+        env:
+          CSC_LINK: ${{ runner.os == 'Windows' && secrets.WINDOWS_CSC_LINK || runner.os == 'macOS' && secrets.MAC_CSC_LINK || '' }}
+          CSC_KEY_PASSWORD: ${{ runner.os == 'Windows' && secrets.WINDOWS_CSC_KEY_PASSWORD || runner.os == 'macOS' && secrets.MAC_CSC_KEY_PASSWORD || '' }}
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CSC_IDENTITY_AUTO_DISCOVERY: ${{ (github.event_name == 'push' || inputs.publish) && 'true' || 'false' }}
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: ${{ matrix.paths }}
+          if-no-files-found: error
+          retention-days: 14
+
+  publish:
+    name: Publish GitHub release
+    needs: package
+    if: github.event_name == 'push' || inputs.publish
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          path: artifacts
+      - name: Create checksums
+        run: find artifacts -type f -print0 | sort -z | xargs -0 sha256sum | sed -E 's#  artifacts/[^/]+/#  #' > SHA256SUMS.txt
+      - name: Publish release assets
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ github.event_name == 'push' && github.ref_name || inputs.tag }}
+        run: |
+          test -n "$RELEASE_TAG" || { echo "A release tag is required."; exit 1; }
+          gh release view "$RELEASE_TAG" >/dev/null 2>&1 || gh release create "$RELEASE_TAG" --verify-tag --generate-notes
+          find artifacts -type f -exec gh release upload "$RELEASE_TAG" --clobber {} +
+          gh release upload "$RELEASE_TAG" --clobber SHA256SUMS.txt

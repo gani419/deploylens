@@ -51,6 +51,15 @@ test('documentation supports direct links, refresh and phone layouts', async ({ 
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
 
+test('privacy policy is directly addressable and explains temporary processing', async ({ page }) => {
+  await page.goto('/privacy');
+  await expect(page.getByRole('heading', { name: 'Development tooling without accounts or tracking' })).toBeVisible();
+  await expect(page.getByText('DeployLens currently has no saved upload history or persistent report database.')).toBeVisible();
+  await expect(page.getByText('loopback-only connection')).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading', { name: 'No accounts, advertising or analytics' })).toBeVisible();
+});
+
 test('handles malformed builds visibly', async ({ page }) => {
   await page.goto('/'); await page.locator('#build-file').setInputFiles('fixtures/corrupt/corrupt.apk');
   await page.getByRole('button', { name: 'Inspect build' }).click();

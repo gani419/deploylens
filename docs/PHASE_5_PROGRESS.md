@@ -7,9 +7,9 @@ Status: desktop implementation complete on Windows. Changes remain local until t
 ## Delivered
 
 - Added Electron Builder configuration for unpacked applications and Windows NSIS/ZIP, macOS DMG/ZIP and Linux AppImage/tar.gz targets.
-- Bundled the Electron main process, preload, inspection worker and web assets so packaged applications do not depend on pnpm workspace symlinks at runtime.
+- Bundled the Electron main process, inspection worker and web assets so packaged applications do not depend on pnpm workspace symlinks at runtime.
 - Replaced the reduced desktop renderer with the shared production web workspace on an ephemeral loopback-only service. Desktop now exposes the same report navigation, themes, diagnostics, editable store preparation, manual markers, research drafts, sharing/export, comparison and local-device workflow as the website.
-- Hardened desktop IPC. Only the main frame may select builds, inspect, cancel, open links or write the clipboard. Permission requests are denied, packaged DevTools are disabled, and inspection accepts only the real path most recently returned by the native APK/AAB/IPA picker.
+- Removed the obsolete renderer/IPC inspection path. The sandboxed shell exposes no Node or Electron bridge to the report UI; uploads use the loopback-only service. Permission requests are denied and packaged DevTools are disabled.
 - Removed the unrestricted file filter and reject unsupported extensions before an archive reaches the engine.
 - Added the DeployLens product icon to Windows, macOS and Linux packaging with a reproducible SVG-to-PNG/ICO build step.
 - Added source-shell, packaged-app and Windows installer qualification scripts.
@@ -31,8 +31,8 @@ Status: desktop implementation complete on Windows. Changes remain local until t
 
 ## Local Windows artifacts
 
-- `DeployLens-1.0.0-win-x64.exe` — 81,164,779 bytes — SHA-256 `067340AD34D7613AB99BF359DBB625EE5016F3F2407699B66E72944E834443A8`
-- `DeployLens-1.0.0-win-x64.zip` — 112,817,314 bytes — SHA-256 `297E435A5EE31D3C7D98B9AE2DB915CE943F64CB0D3A7AFA142DC239733AA12C`
+- `DeployLens-1.0.0-win-x64.exe` — 81,161,696 bytes — SHA-256 `5B034B69110587EC16E362C86FBC807DC0D0F9502AC8B4B88D3CEB6DFEE06679`
+- `DeployLens-1.0.0-win-x64.zip` — 112,697,021 bytes — SHA-256 `1C6B930D9B1C2B24A4E9BFCA2256CF2364FFAEA3B9752F2446CB6B817270583B`
 
 These artifacts use the DeployLens icon but are unsigned. They are local qualification outputs, not public releases.
 
@@ -42,7 +42,7 @@ These artifacts use the DeployLens icon but are unsigned. They are local qualifi
 - Package-boundary validation passed.
 - Unit/integration suite passed: 20 files and 122 tests, including signing, archive safety, permission diagnostics, web upload cleanup and offline operation.
 - Browser suite passed all 15 web flows. On this managed Windows host, Chrome retained its process tree after reporting the completed tests, so the runner required host cleanup after the pass output.
-- `pnpm desktop:verify` passed the Electron preload bridge, shared workspace, real APK inspection, sharing/comparison controls and local-device dialog. The verifier explicitly terminates Electron's Windows process tree because this managed host blocks normal sandbox cleanup.
+- `pnpm desktop:verify` passed the Electron shell, shared workspace, real APK inspection, sharing/comparison controls and local-device dialog. The verifier explicitly terminates Electron's Windows process tree because this managed host blocks normal sandbox cleanup.
 - `verify-packaged-app.ps1` passed a real inspection through the packaged executable and its embedded worker.
 - The NSIS installer silently installed the application and the installed executable passed the packaged inspection. The generated silent uninstaller returned success but left installed files on this managed host, so uninstall is not recorded as passed.
 

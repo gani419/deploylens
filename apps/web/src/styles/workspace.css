@@ -283,6 +283,14 @@
 .workspace-footer span span {
   margin: 0 8px;
 }
+.workspace-footer a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.workspace-footer a:hover {
+  color: var(--primary);
+}
 .drawer-trigger,
 .drawer-close,
 .drawer-backdrop {

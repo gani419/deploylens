@@ -5,6 +5,7 @@ import path from 'node:path';
 import { once } from 'node:events';
 import { createHash } from 'node:crypto';
 import { request as httpRequest } from 'node:http';
+import { connect as connectHttp2 } from 'node:http2';
 // @ts-expect-error The server is deliberately framework-independent Node ESM.
 import { createWebServer } from '../apps/server/src/index.mjs';
 
@@ -12,7 +13,10 @@ let directory: string;
 let servers: ReturnType<typeof createWebServer>[];
 beforeEach(async () => { directory = await fs.mkdtemp(path.join(os.tmpdir(), 'deploylens-http-test-')); servers = []; });
 afterEach(async () => {
-  for (const server of servers) { server.closeAllConnections(); await new Promise<void>(resolve => server.close(() => resolve())); }
+  for (const server of servers) {
+    if ('closeAllConnections' in server) server.closeAllConnections();
+    await new Promise<void>(resolve => server.close(() => resolve()));
+  }
   await fs.rm(directory, { recursive: true, force: true, maxRetries: 10, retryDelay: 50 });
 });
 async function serve(options = {}) {
@@ -32,10 +36,25 @@ async function cleaned() {
 }
 
 describe('Website upload service', () => {
+  it('serves health checks over cleartext HTTP/2 for Cloud Run end-to-end HTTP/2 mode', async () => {
+    const server = createWebServer({ tempRoot: directory, useHttp2: true }); servers.push(server);
+    server.listen(0, '127.0.0.1'); await once(server, 'listening');
+    const client = connectHttp2(`http://127.0.0.1:${server.address().port}`);
+    try {
+      const request = client.request({ ':path': '/api/health' });
+      let status: number | undefined; let body = '';
+      request.on('response', headers => { status = Number(headers[':status']); });
+      request.setEncoding('utf8'); request.on('data', chunk => { body += chunk; }); request.end();
+      await once(request, 'end');
+      expect(status).toBe(200);
+      expect(JSON.parse(body).retainsHistory).toBe(false);
+    } finally { client.close(); }
+  });
   it('serves the website and documents no upload history', async () => {
     const base = await serve();
     expect((await fetch(base)).status).toBe(200);
     expect((await fetch(base + '/documentation')).status).toBe(200);
+      expect((await fetch(base + '/privacy')).status).toBe(200);
     const response = await fetch(base + '/api/health');
     expect(response.headers.get('Cache-Control')).toBe('no-store');
     expect((await response.json()).retainsHistory).toBe(false);

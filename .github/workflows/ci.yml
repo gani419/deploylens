@@ -1,0 +1,91 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  application:
+    name: Application checks
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.9.1
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm check:boundaries
+      - run: pnpm typecheck
+      - run: pnpm test
+      - run: pnpm web:build
+      - name: Install Chrome for browser checks
+        run: pnpm exec playwright install --with-deps chrome
+      - run: pnpm test:e2e
+
+  desktop-windows:
+    name: Windows desktop qualification
+    runs-on: windows-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - uses: pnpm/action-setup@v6
+        with:
+          version: 12.9.1
+          run_install: false
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 22
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm desktop:verify
+      - run: pnpm --filter @deploylens/desktop run package:win
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: "false"
+      - name: Exercise packaged inspection
+        shell: powershell
+        run: ./apps/desktop/scripts/verify-packaged-app.ps1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: deploylens-windows-unsigned
+          path: |
+            apps/desktop/release/*.exe
+            apps/desktop/release/*.zip
+          if-no-files-found: error
+          retention-days: 7
+
+  production-container:
+    name: Production container
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    steps:
+      - uses: actions/checkout@v6
+      - name: Build image
+        run: docker build --tag deploylens-ci .
+      - name: Verify HTTP/2 health and Android tools
+        shell: bash
+        run: |
+          docker run --detach --name deploylens-ci --read-only --tmpfs /tmp:size=2g,mode=1777 --env DEPLOYLENS_HTTP2=1 deploylens-ci
+          trap 'docker rm --force deploylens-ci >/dev/null 2>&1 || true' EXIT
+          for attempt in {1..30}; do
+            docker exec deploylens-ci node apps/server/src/healthcheck.mjs && break
+            if [ "$attempt" -eq 30 ]; then docker logs deploylens-ci; exit 1; fi
+            sleep 1
+          done
+          docker exec deploylens-ci apksigner version
+          docker exec deploylens-ci zipalign -h >/dev/null
+          docker exec deploylens-ci jarsigner -help >/dev/null

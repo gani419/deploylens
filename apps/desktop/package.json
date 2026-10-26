@@ -9,36 +9,26 @@
   "scripts": {
     "dev": "pnpm run build && electron .",
     "build:renderer": "pnpm --filter @deploylens/web build",
-    "build:electron": "tsc -p tsconfig.electron.json --noEmit && esbuild electron/main.ts --bundle --platform=node --target=node20 --format=esm --external:electron --outfile=dist-electron/main.js && esbuild ../server/src/worker.mjs --bundle --platform=node --target=node20 --format=esm --outfile=dist-electron/worker.mjs && esbuild electron/preload.ts --bundle --platform=node --target=node20 --format=cjs --external:electron --outfile=dist-electron/preload.cjs",
+    "build:electron": "rimraf dist-electron && tsc -p tsconfig.electron.json --noEmit && esbuild electron/main.ts --bundle --platform=node --target=node20 --format=esm --external:electron --outfile=dist-electron/main.js && esbuild ../server/src/worker.mjs --bundle --platform=node --target=node20 --format=esm --outfile=dist-electron/worker.mjs",
     "build:icons": "node scripts/generate-icons.mjs",
     "build": "pnpm run build:renderer && pnpm run build:electron",
     "package": "pnpm run build:icons && pnpm run build && electron-builder --dir",
     "package:win": "pnpm run build:icons && pnpm run build && electron-builder --win nsis zip",
     "package:mac": "pnpm run build:icons && pnpm run build && electron-builder --mac dmg zip",
+    "package:mac:all": "pnpm run build:icons && pnpm run build && electron-builder --mac dmg zip --x64 --arm64",
     "package:linux": "pnpm run build:icons && pnpm run build && electron-builder --linux AppImage tar.gz",
     "start": "electron .",
-    "typecheck": "tsc --noEmit && tsc -p tsconfig.electron.json --noEmit",
-    "preview": "vite"
+    "typecheck": "tsc -p tsconfig.electron.json --noEmit"
   },
   "dependencies": {},
   "devDependencies": {
     "@deploylens/config": "workspace:*",
-    "@deploylens/contracts": "workspace:*",
-    "@deploylens/core": "workspace:*",
-    "@deploylens/ui-web": "workspace:*",
-    "@deploylens/utils": "workspace:*",
     "@resvg/resvg-js": "^2.6.2",
-    "@types/react": "19.3.0",
-    "@types/react-dom": "19.3.0",
-    "@vitejs/plugin-react": "4.3.4",
     "electron": "34.3.0",
     "electron-builder": "^26.15.3",
     "esbuild": "0.25.12",
-    "react": "19.3.0",
-    "react-dom": "19.3.0",
     "rimraf": "6.0.1",
-    "typescript": "5.8.2",
-    "vite": "6.2.0"
+    "typescript": "5.8.2"
   },
   "build": {
     "appId": "com.deploylens.desktop",

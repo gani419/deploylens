@@ -13,3 +13,4 @@ test-results/
 playwright-report/
 .firebase/
 apps/desktop/release/
+gha-creds-*.json

@@ -6,8 +6,7 @@
 | --- | --- |
 | `apps/web/src` | React DOM screens, CSS, browser file selection, XHR/fetch, clipboard, HTML/MIME downloads and native-browser sharing |
 | `apps/server/src` | HTTP upload/streaming service, isolated Node scan worker, temporary cleanup and opt-in local ADB/Apple device adapters |
-| `apps/desktop/src` | Electron renderer and desktop interactions |
-| `apps/desktop/electron` | Main process, sandboxed preload, IPC, filesystem selection and local Node engine access |
+| `apps/desktop/electron` | Sandboxed Electron shell that serves the built web workspace and loopback-only Node inspection/device service |
 | `apps/cli` | Command-line entry and output formatting |
 | `apps/mobile` | React Native Community CLI Android/iOS clients, native UI, document selection, streamed inspection transport and platform adapters |
 
@@ -17,14 +16,14 @@
 | --- | --- |
 | `@deploylens/contracts` | All products: inspection metadata, findings, stages and public service/wire-event types |
 | `@deploylens/config` | Web, mobile, desktop and server: product identity, upload defaults, formats, colors and typography roles/sizes |
-| `@deploylens/utils` | Web, mobile and desktop: app identity, result labels, formatting, links and portable archive validation |
+| `@deploylens/utils` | Web and mobile: app identity, result labels, formatting, links and portable archive validation |
 | `@deploylens/reporting` | Web and future native collaboration: build comparison, sharing-message defaults and Markdown research descriptions |
 | `@deploylens/store` | Web and mobile: independent inspection stores plus per-report review markers, listing drafts and sharing draft |
 | `@deploylens/api-client` | Web and mobile: incremental NDJSON decoder, event-envelope validation, upload route and generic transport/observer contract |
 
 Mobile reuses these packages without importing web source files. Pure client packages compile with `lib: ["ES2022"]` and `types: []`. Their dependencies and source imports are checked by `pnpm check:boundaries`.
 
-`@deploylens/ui-web` contains the former `@deploylens/ui` DOM components and is consumed by Electron. It is intentionally separate from native UI. The existing `core`, `android`, `ios`, `rules` and `store-guidance` packages continue to own inspection/validation. The Node engine and tool adapters do not enter the native client dependency graph.
+`@deploylens/ui-web` contains the former `@deploylens/ui` DOM components and is consumed by the web workspace embedded in Electron. It is intentionally separate from native UI. The existing `core`, `android`, `ios`, `rules` and `store-guidance` packages continue to own inspection/validation. The Node engine and tool adapters do not enter the native client dependency graph.
 
 ## State and file ownership
 

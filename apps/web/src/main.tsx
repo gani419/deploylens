@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, useSyncExternalStore } from 'react';
 import type { MouseEvent } from 'react';
 import { createRoot } from 'react-dom/client';
 import { Documentation } from './Documentation.js';
+import { PrivacyPolicy } from './PrivacyPolicy.js';
 import { AndroidDiagnostics } from './AndroidDiagnostics.js';
 import { useInspection } from './hooks/useInspection.js';
 import { WorkspaceShell } from './components/WorkspaceShell.js';
@@ -28,7 +29,9 @@ import './styles/collaboration.css';
 function App() {
   const scan = useInspection();
   const baseline = useInspection();
-  const [page, setPage] = useState(location.pathname === '/documentation' ? 'documentation' : 'inspect');
+  type Page = 'inspect' | 'documentation' | 'privacy';
+  const pageForPath = (): Page => location.pathname === '/documentation' ? 'documentation' : location.pathname === '/privacy' ? 'privacy' : 'inspect';
+  const [page, setPage] = useState<Page>(pageForPath);
   const [view, setView] = useState<ReportView>('overview');
   const sessionStore = useMemo(() => {
     const store = createReportSessionStore(scan.summary?.scanId ?? null);
@@ -37,13 +40,13 @@ function App() {
   }, [scan.summary]);
   const session = useSyncExternalStore(sessionStore.subscribe, sessionStore.getState, sessionStore.getState);
   useEffect(() => {
-    const pop = () => setPage(location.pathname === '/documentation' ? 'documentation' : 'inspect');
+    const pop = () => setPage(pageForPath());
     window.addEventListener('popstate', pop); return () => window.removeEventListener('popstate', pop);
   }, []);
   useEffect(() => { if (scan.summary) { setView('overview'); window.scrollTo({ top: 0 }); } }, [scan.summary]);
-  function navigate(event: MouseEvent<HTMLAnchorElement>, next: 'inspect' | 'documentation') {
+  function navigate(event: MouseEvent<HTMLAnchorElement>, next: Page) {
     if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
-    event.preventDefault(); history.pushState(null, '', next === 'documentation' ? '/documentation' : '/');
+    event.preventDefault(); history.pushState(null, '', next === 'documentation' ? '/documentation' : next === 'privacy' ? '/privacy' : '/');
     setPage(next); window.scrollTo({ top: 0 });
   }
   function showView(next: ReportView) {
@@ -57,7 +60,7 @@ function App() {
     setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
   return <WorkspaceShell page={page} view={view} summary={scan.summary} onNavigate={navigate} onView={showView}>
-    {page === 'documentation' ? <Documentation/> : !scan.summary ? <UploadHome scan={scan}/> : <main className="report-page" aria-label="Inspection results"><ReportHeader summary={scan.summary} onDownload={download} onNew={() => { baseline.reset(); scan.reset(); }} onShare={() => showView('share')}/>
+    {page === 'documentation' ? <Documentation/> : page === 'privacy' ? <PrivacyPolicy/> : !scan.summary ? <UploadHome scan={scan}/> : <main className="report-page" aria-label="Inspection results"><ReportHeader summary={scan.summary} onDownload={download} onNew={() => { baseline.reset(); scan.reset(); }} onShare={() => showView('share')}/>
       {view === 'overview' && <ReportOverview summary={scan.summary} onView={showView}/>}
       {view === 'findings' && <FindingsView summary={scan.summary}/>}
       {view === 'checks' && <AllChecks summary={scan.summary}/>}

@@ -5,6 +5,7 @@ import { product } from '@deploylens/config';
 import { Icon } from './Icon.js';
 
 export type ReportView = 'overview' | 'findings' | 'checks' | 'details' | 'android' | 'ios' | 'guidance' | 'verification' | 'share' | 'compare' | 'install';
+export type WorkspacePage = 'inspect' | 'documentation' | 'privacy';
 export const viewTitles: Record<ReportView, string> = { overview: 'Release overview', findings: 'Findings & fixes', checks: 'All checks', details: 'Build details', android: 'Android diagnostics', ios: 'iOS diagnostics', guidance: 'Store preparation', verification: 'Manual verification', share: 'Share report & build', compare: 'Compare builds', install: 'Install on Android' };
 function initialTheme(): 'light' | 'dark' {
   try { const saved = localStorage.getItem('deploylens-theme'); if (saved === 'light' || saved === 'dark') return saved; } catch { /* Appearance is optional. */ }
@@ -13,8 +14,8 @@ function initialTheme(): 'light' | 'dark' {
 const startingTheme = initialTheme(); document.documentElement.dataset.theme = startingTheme;
 
 export function WorkspaceShell({ children, page, view, summary, onNavigate, onView }: {
-  children: ReactNode; page: string; view: ReportView; summary: ScanSummary | null;
-  onNavigate: (event: MouseEvent<HTMLAnchorElement>, page: 'inspect' | 'documentation') => void;
+  children: ReactNode; page: WorkspacePage; view: ReportView; summary: ScanSummary | null;
+  onNavigate: (event: MouseEvent<HTMLAnchorElement>, page: WorkspacePage) => void;
   onView: (view: ReportView) => void;
 }) {
   const [theme, setTheme] = useState(startingTheme);
@@ -67,12 +68,12 @@ export function WorkspaceShell({ children, page, view, summary, onNavigate, onVi
       <div className="workspace-label"><span className="workspace-avatar">DL</span><div>Build inspection<small>Android & iOS</small></div><span className="alpha">ALPHA</span></div>
       <nav aria-label="Primary navigation"><p className="nav-caption">WORKSPACE</p><a className={`sidebar-link ${page === 'inspect' && !summary ? 'active' : ''}`} href="/" aria-label="Inspect a build" title="Inspect a build" onClick={event => { onNavigate(event, 'inspect'); setDrawer(false); }} aria-current={page === 'inspect' && !summary ? 'page' : undefined}><Icon name="upload"/><span className="nav-label">Inspect a build</span></a>
         <p className="nav-caption report-caption">CURRENT REPORT</p>{links.map(link => <button key={link.id} className={`sidebar-link ${page === 'inspect' && summary && view === link.id ? 'active' : ''}`} disabled={!summary} aria-label={titles[link.id]} title={!summary ? 'Inspect a build to view this report' : titles[link.id]} aria-current={page === 'inspect' && summary && view === link.id ? 'page' : undefined} onClick={() => { onView(link.id); setDrawer(false); }}><Icon name={link.icon}/><span className="nav-label">{titles[link.id]}</span>{link.count !== undefined && <span className="nav-count">{link.count}</span>}</button>)}
-        <p className="nav-caption report-caption">RESOURCES</p><a href="/documentation" aria-label="Documentation" title="Documentation" className={`sidebar-link ${page === 'documentation' ? 'active' : ''}`} onClick={event => { onNavigate(event, 'documentation'); setDrawer(false); }} aria-current={page === 'documentation' ? 'page' : undefined}><Icon name="book"/><span className="nav-label">Documentation</span></a>
+        <p className="nav-caption report-caption">RESOURCES</p><a href="/documentation" aria-label="Documentation" title="Documentation" className={`sidebar-link ${page === 'documentation' ? 'active' : ''}`} onClick={event => { onNavigate(event, 'documentation'); setDrawer(false); }} aria-current={page === 'documentation' ? 'page' : undefined}><Icon name="book"/><span className="nav-label">Documentation</span></a><a href="/privacy" aria-label="Privacy policy" title="Privacy policy" className={`sidebar-link ${page === 'privacy' ? 'active' : ''}`} onClick={event => { onNavigate(event, 'privacy'); setDrawer(false); }} aria-current={page === 'privacy' ? 'page' : undefined}><Icon name="shield"/><span className="nav-label">Privacy policy</span></a>
       </nav><div className="sidebar-bottom"><Icon name="shield"/><strong>Your build, briefly here.</strong><p>Temporary processing.<br/>No saved upload history.</p><span>Inspect. Understand. Release.</span></div>
     </aside>
-    <div className="workspace"><header className="workspace-header"><div className="header-location"><button ref={trigger} className="drawer-trigger icon-button" aria-label="Open navigation" aria-expanded={drawer} aria-controls="workspace-sidebar" onClick={() => setDrawer(true)}><Icon name="menu"/></button><span>Workspace</span><Icon name="chevron"/><strong>{page === 'documentation' ? 'Documentation' : summary ? titles[view] : 'Inspect a build'}</strong></div><div className="header-actions"><span className="session-indicator"><span/>Private scan session</span><div className="theme-switch" role="group" aria-label="Appearance"><button aria-label="Light theme" aria-pressed={theme === 'light'} onClick={() => changeTheme('light')}><Icon name="sun"/></button><button aria-label="Dark theme" aria-pressed={theme === 'dark'} onClick={() => changeTheme('dark')}><Icon name="moon"/></button></div></div></header>
+    <div className="workspace"><header className="workspace-header"><div className="header-location"><button ref={trigger} className="drawer-trigger icon-button" aria-label="Open navigation" aria-expanded={drawer} aria-controls="workspace-sidebar" onClick={() => setDrawer(true)}><Icon name="menu"/></button><span>Workspace</span><Icon name="chevron"/><strong>{page === 'documentation' ? 'Documentation' : page === 'privacy' ? 'Privacy policy' : summary ? titles[view] : 'Inspect a build'}</strong></div><div className="header-actions"><span className="session-indicator"><span/>Private scan session</span><div className="theme-switch" role="group" aria-label="Appearance"><button aria-label="Light theme" aria-pressed={theme === 'light'} onClick={() => changeTheme('light')}><Icon name="sun"/></button><button aria-label="Dark theme" aria-pressed={theme === 'dark'} onClick={() => changeTheme('dark')}><Icon name="moon"/></button></div></div></header>
       <div id="workspace-content" className="workspace-content" tabIndex={-1}>{children}</div>
-      <footer className="workspace-footer"><span>{product.name} v{product.version} <span>·</span> Build confidence with evidence.</span><span>Static inspection · Runtime testing still required</span></footer>
+      <footer className="workspace-footer"><span>{product.name} v{product.version} <span>·</span> Build confidence with evidence.</span><span>Static inspection · Runtime testing still required · <a href="/privacy" onClick={event => onNavigate(event, 'privacy')}>Privacy</a></span></footer>
     </div>
   </div>;
 }
